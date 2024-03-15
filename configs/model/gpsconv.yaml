@@ -1,0 +1,28 @@
+name: 'gpsconv'
+
+params:
+  _target_: models.gpsconv.GraphModel
+  channels: 64
+  pe_dim: 8
+  num_layers: 10
+  model_type: 'mamba'
+  shuffle_ind: 0 
+  order_by_degree: True
+  d_conv: 4
+  d_state: 16 
+
+
+optimizer:
+  _target_: torch.optim.Adam
+  lr: 0.001
+  weight_decay: 0.0
+
+warmup_epochs: 1
+
+batch_size: 32
+
+# scheduler: cosine
+scheduler: step
+step_size: 150
+gamma: 0.5
+

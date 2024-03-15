@@ -1,0 +1,5 @@
+train:
+  _target_: utils.evaluator.LossEvaluator
+
+test: 
+  _target_: utils.evaluator.LossEvaluator

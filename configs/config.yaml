@@ -1,0 +1,35 @@
+defaults: 
+  - _self_
+  - model: gpsconv
+  - dataset: zinc
+  - loss: mse
+  - evaluator: loss_evaluator
+  
+seed: 0
+num_epochs: 20
+log_frequency: 50
+evaluate_frequency: 1
+
+print: True
+use_wandb: False
+log_model: False
+
+num_workers: 4
+num_threads: 4
+
+project_name: SeqForGraphs
+
+wandb:
+  tags: []
+  project: ${project_name}
+  group: 'tmp'
+  name: '${model.wandb_name}_${dataset.name}_${now:%Y-%m-%d_%H-%M-%S}'
+
+workdir: 
+  root: '/home/${oc.env:USER}/data/${project_name}'
+  name: 'models/${model.name}/${wandb.group}/${now:%Y-%m-%d_%H-%M-%S}'
+  checkpoint_path: '${workdir.root}/${workdir.name}/ckpt.pth'
+
+hydra:
+  run:
+    dir: /home/${oc.env:USER}/data/${project_name}/outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}

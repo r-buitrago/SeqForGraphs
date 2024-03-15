@@ -1,0 +1,5 @@
+train:
+  _target_: utils.evaluator.DummyEvaluator
+
+test: 
+  _target_: utils.evaluator.DummyEvaluator

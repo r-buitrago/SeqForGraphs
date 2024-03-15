@@ -1,0 +1,6 @@
+name: zinc
+
+params: 
+  _target_: dataloader.tg_datasets.get_zinc_dataset
+  path: /home/${oc.env:USER}/data/SeqForGraphs/datasets/zinc
+  subset: True
