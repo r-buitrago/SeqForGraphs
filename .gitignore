@@ -325,3 +325,4 @@ cython_debug/
 notebooks/raw/*
 notebooks/subset/*
 .vscode/*
+wandb/*

@@ -23,7 +23,7 @@ wandb:
   tags: []
   project: ${project_name}
   group: 'tmp'
-  name: '${model.wandb_name}_${dataset.name}_${now:%Y-%m-%d_%H-%M-%S}'
+  name: '${model.name}_${dataset.name}_${now:%Y-%m-%d_%H-%M-%S}'
 
 workdir: 
   root: '/home/${oc.env:USER}/data/${project_name}'
