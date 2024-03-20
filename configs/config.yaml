@@ -1,6 +1,6 @@
 defaults: 
   - _self_
-  - model: gpsconv
+  - model: gine-mamba
   - dataset: zinc
   - loss: mse
   - evaluator: loss_evaluator

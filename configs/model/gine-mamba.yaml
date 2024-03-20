@@ -1,0 +1,30 @@
+name: 'gine-mamba'
+
+params:
+  _target_: models.graph_model.GraphModel
+  mpnn_type: gine
+  post_seq_model: mamba
+  serialization_type: node_order
+  channels: 64
+  pe_dim: 8
+  num_layers: 10
+  d_conv: 4
+  d_state: 16 
+  dropout: 0.0
+  act_kwargs: null
+  act: relu
+
+optimizer:
+  _target_: torch.optim.Adam
+  lr: 0.001
+  weight_decay: 0.0
+
+warmup_epochs: 1
+
+batch_size: 32
+
+# scheduler: cosine
+scheduler: step
+step_size: 150
+gamma: 0.5
+
