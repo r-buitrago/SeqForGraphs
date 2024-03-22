@@ -326,3 +326,5 @@ notebooks/raw/*
 notebooks/subset/*
 .vscode/*
 wandb/*
+
+pipe_cfgs/*

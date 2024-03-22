@@ -1,11 +1,11 @@
-name: 'gine-mamba'
+name: 'GREDMamba-mamba'
 
 params:
   _target_: models.graph_model.GraphModel
-  mpnn_type: gine
-  post_seq_model: mamba
-  global_serialization_type: node_order
-  d_model: 64
+  mpnn_type: GREDMamba
+  post_seq_model: null
+  global_serialization_type: null
+  d_model: 32
   pe_dim: 8
   num_layers: 4
   d_conv: 4

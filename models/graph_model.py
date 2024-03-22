@@ -16,7 +16,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import torch_geometric.transforms as T
 from torch_geometric.datasets import ZINC
 from torch_geometric.loader import DataLoader
-from torch_geometric.nn import GINEConv, global_add_pool
+from torch_geometric.nn import global_add_pool
 import inspect
 from typing import Any, Dict, Optional
 
@@ -37,16 +37,19 @@ from mamba_ssm import Mamba
 from torch_geometric.utils import degree, sort_edge_index
 
 from models.serialization import NodeOrder
+from models.mpnn import GREDMamba, CustomGINEConv
+
 
 class GraphModel(torch.nn.Module):
     def __init__(
         self,
         mpnn_type: str,
         post_seq_model: str,
-        serialization_type: str,
-        channels: int = 64,
+        global_serialization_type: str,
+        d_model: int = 64,
         pe_dim: int = 8,
         num_layers: int = 10,
+        
         d_state: int = 16,
         d_conv: int = 4,
         dropout: float = 0.0,
@@ -59,43 +62,51 @@ class GraphModel(torch.nn.Module):
         super().__init__()
 
         self.node_emb = Embedding(
-            28, channels - pe_dim
+            28, d_model - pe_dim
         )  # (# max_nodes, #embedding_dim)
         self.pe_lin = Linear(20, pe_dim)
         self.pe_norm = BatchNorm1d(20)
-        self.edge_emb = Embedding(4, channels)
+        self.edge_emb = Embedding(4, d_model)
         self.mpnn_type = mpnn_type
         self.post_seq_model = post_seq_model
-        self.serialization_type = serialization_type
+        self.global_serialization_type = global_serialization_type
         self.dropout = dropout
 
         if mpnn_type == "gine":
             nn = Sequential(
-                Linear(channels, channels),
+                Linear(d_model, d_model),
                 ReLU(),
-                Linear(channels, channels),
+                Linear(d_model, d_model),
             )
-            mpnn_gen = lambda: GINEConv(nn)
+            mpnn_gen = lambda: CustomGINEConv(nn)
+        elif mpnn_type == "GREDMamba":
+            mpnn_gen = lambda: GREDMamba(
+                d_model=d_model, d_state=d_state, d_conv=d_conv, expand=1
+            )
         else:
             raise ValueError(f"MPNN type {mpnn_type} not recognized")
 
         if post_seq_model == "mamba":
             post_seq_model_gen = lambda: Mamba(
-                d_model=channels, d_state=d_state, d_conv=d_conv, expand=1
+                d_model=d_model, d_state=d_state, d_conv=d_conv, expand=1
             )
+        elif post_seq_model is None: 
+            post_seq_model_gen = lambda: None
         else:
             raise ValueError(f"Post sequence model {post_seq_model} not recognized")
 
-        if serialization_type == "node_order":
+        if global_serialization_type == "node_order":
             self.serialization = NodeOrder()
+        elif global_serialization_type is None: 
+            self.serialization = None
         else:
-            raise ValueError(f"Serialization type {serialization_type} not recognized")
+            raise ValueError(f"Serialization type {global_serialization_type} not recognized")
         
         mpl_gen = lambda: Sequential(
-            Linear(channels, channels * 2),
+            Linear(d_model, d_model * 2),
             activation_resolver(act, **(act_kwargs or {})),
             Dropout(dropout),
-            Linear(channels * 2, channels),
+            Linear(d_model * 2, d_model),
             Dropout(dropout),
         )
 
@@ -108,11 +119,11 @@ class GraphModel(torch.nn.Module):
             self.mlps.append(mpl_gen())
 
         self.final_mlp = Sequential(
-            Linear(channels, channels // 2),
+            Linear(d_model, d_model // 2),
             ReLU(),
-            Linear(channels // 2, channels // 4),
+            Linear(d_model // 2, d_model // 4),
             ReLU(),
-            Linear(channels // 4, 1),
+            Linear(d_model // 4, 1),
         )
 
     def forward(self, x, pe, edge_index, edge_attr, batch):
@@ -123,15 +134,19 @@ class GraphModel(torch.nn.Module):
         edge_attr = self.edge_emb(edge_attr)
 
         for mpnn, post_seq_models, mlp in zip(self.mpnns, self.post_seq_models, self.mlps):
-            h_local = mpnn(x, edge_index, edge_attr=edge_attr)
+            h_local = mpnn(x, edge_index = edge_index, edge_attr=edge_attr, batch = batch)
             h_local = F.dropout(h_local, p=self.dropout, training=self.training)
             h_local = h_local + x
 
-            serialized_h, mask = self.serialization.serialize(x, edge_index, batch, edge_attr)
-            h_global = post_seq_models(serialized_h)[mask]
-            h_global = F.dropout(h_global, p=self.dropout, training=self.training)
-            h_global = h_global + x
-            x = h_local + h_global
+            if self.post_seq_model is not None:
+                serialized_h, mask = self.serialization.serialize(x, edge_index, batch, edge_attr)
+                h_global = post_seq_models(serialized_h)[mask]
+                h_global = F.dropout(h_global, p=self.dropout, training=self.training)
+                h_global = h_global + x
+                x = h_local + h_global
+            else: 
+                x = h_local
+            
             x = mlp(x)
 
         x = global_add_pool(x, batch)

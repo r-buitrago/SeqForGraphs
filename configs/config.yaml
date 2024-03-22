@@ -1,6 +1,6 @@
 defaults: 
   - _self_
-  - model: gine-mamba
+  - model: GREDMamba
   - dataset: zinc
   - loss: mse
   - evaluator: loss_evaluator
