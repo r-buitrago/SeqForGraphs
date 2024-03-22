@@ -34,11 +34,28 @@ def get_dataset(args, batch_size):
 
 
 def learning_step(
-    args, model, batch, loss_type, is_training=True, evaluator=DummyEvaluator
+    args,
+    model,
+    batch,
+    loss_type,
+    is_training=True,
+    evaluator=DummyEvaluator,
+    batch_start=0,
 ):
     batch.to(device)
     loss_fn = get_loss_value(loss_type)
-    out = model(batch.x, batch.pe, batch.edge_index, batch.edge_attr, batch.batch)
+
+    precomputed_masks_path = args.dataset.params.precomputed_masks_path
+    if precomputed_masks_path is not None:
+        dist_mask = DIST_MASKS [
+            batch_start : batch_start + batch.num_graphs
+        ].to(
+            device
+        )  # (B, K+1, max_nodes, max_nodes)
+
+    out = model(
+        batch.x, batch.pe, batch.edge_index, batch.edge_attr, batch.batch, dist_mask
+    )
     loss = loss_fn(out.squeeze(), batch.y)
     evaluator.evaluate(out.squeeze(), batch.y)
     return loss
@@ -63,13 +80,14 @@ def train(
     model.train()
     t1 = default_timer()
     batch_timer = default_timer()
-    for _, batch in enumerate(train_loader):
+    for i, batch in enumerate(train_loader):
         loss = learning_step(
             args,
             model,
             batch,
             loss_type=loss_type,
             evaluator=evaluator,
+            batch_start=i,
         )
         optimizer.zero_grad()
         loss.backward()
@@ -87,7 +105,7 @@ def test(args, test_loader, model, loss_type, evaluator=DummyEvaluator):
     model.eval()
     t1 = default_timer()
     batch_timer = default_timer()
-    for batch in test_loader:
+    for i, batch in enumerate(test_loader):
         _ = learning_step(
             args,
             model,
@@ -95,6 +113,7 @@ def test(args, test_loader, model, loss_type, evaluator=DummyEvaluator):
             loss_type=loss_type,
             evaluator=evaluator,
             is_training=False,
+            batch_start=i,
         )
         log.debug(f"Evaluation batch time: {default_timer() - batch_timer}")
         batch_timer = default_timer()
@@ -156,9 +175,7 @@ def _main(args: DictConfig):
         run.summary["total_parameters"] = total_params
         run.summary["total_grad_parameters"] = total_grad_params
 
-    optimizer = instantiate(
-        args.model.optimizer, params = model.parameters()
-    )
+    optimizer = instantiate(args.model.optimizer, params=model.parameters())
 
     iterations = args.num_epochs * len(train_loader.dataset) // args.model.batch_size
     if args.model.scheduler == "cosine":
@@ -189,9 +206,14 @@ def _main(args: DictConfig):
     train_evaluator = instantiate(
         args.evaluator.train, loss_fn=get_loss_value(loss_type)
     )
-    test_evaluator = instantiate(
-        args.evaluator.test, loss_fn=get_loss_value(loss_type)
-    )
+    test_evaluator = instantiate(args.evaluator.test, loss_fn=get_loss_value(loss_type))
+
+    precomputed_masks_path = args.dataset.params.precomputed_masks_path
+    if precomputed_masks_path is not None:
+        print("Loading precomputed masks")
+        global DIST_MASKS 
+        DIST_MASKS = torch.load(precomputed_masks_path) # (N, K+1, max_nodes, max_nodes)
+        print("Precomputed masks loaded")
 
     for epoch in range(args.num_epochs):
         model, train_time = train(

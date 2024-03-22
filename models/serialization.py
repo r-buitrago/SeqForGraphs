@@ -42,6 +42,8 @@ import numpy as np
 
 from einops import rearrange
 
+from timeit import default_timer as timer
+
 def floyd_warshall(adj_matrix, K):
     shortest_paths = csg.floyd_warshall(adj_matrix, directed=False)
     k_matrix = np.transpose((np.arange(K+1)[::-1] == shortest_paths[...,None]).astype(int), (2, 0, 1))
@@ -97,7 +99,7 @@ class GRED(LocalSerialization):
     def __init__(self, K):
         self.K = K
 
-    def serialize(self, x, edge_index, batch, edge_attr = None):
+    def serialize(self, x, edge_index, batch, edge_attr = None, dist_mask = None):
         inputs, mask = to_dense_batch(x, batch) # Shape of inputs: (batch_size, num_nodes, dim_h)
         inputs = inputs.float().to('cuda')
         mask = mask.float().to('cuda')
@@ -105,12 +107,18 @@ class GRED(LocalSerialization):
         # Create distance matrix using floyd_warshall
         adj_matrix = to_dense_adj(edge_index, batch=batch, max_num_nodes=inputs.shape[1])
 
+        n_nodes = inputs.shape[1]
+
         # Compute the shortest paths using Floyd-Warshall
-        k_matrix = [floyd_warshall(i, self.K) for i in adj_matrix.cpu().numpy()]
+        if dist_mask is None:
+            k_matrix = [floyd_warshall(i, self.K) for i in adj_matrix.cpu().numpy()]
 
-        # Shape of dist_masks: (batch_size, K+1, num_nodes, num_nodes)
-        dist_mask = torch.tensor(np.array(k_matrix), dtype=torch.float32).to('cuda')
-
+            # Shape of dist_masks: (batch_size, K+1, num_nodes, num_nodes)
+            dist_mask = torch.tensor(np.array(k_matrix), dtype=torch.float32).to('cuda')
+        else: 
+            dist_mask = dist_mask[:, :self.K+1, :n_nodes, :n_nodes]
+        
+        
         out = torch.swapaxes(dist_mask, 0, 1) @ inputs # (K, B, N, H)
         out = rearrange(out, 'k b n h -> b n k h')
         return out, mask

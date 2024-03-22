@@ -5,7 +5,7 @@ params:
   mpnn_type: gine
   post_seq_model: null
   global_serialization_type: null
-  d_model: 128
+  d_model: 80
   pe_dim: 8
   num_layers: 4
   d_conv: 4

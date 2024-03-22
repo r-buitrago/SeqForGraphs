@@ -328,3 +328,5 @@ notebooks/subset/*
 wandb/*
 
 pipe_cfgs/*
+data/*
+notebooks/full/*

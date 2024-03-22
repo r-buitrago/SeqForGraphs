@@ -10,6 +10,7 @@ from torch.nn import (
     ModuleList,
     ReLU,
     Sequential,
+    LayerNorm,
 )
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
@@ -38,6 +39,8 @@ from torch_geometric.utils import degree, sort_edge_index
 
 from models.serialization import NodeOrder
 from models.mpnn import GREDMamba, CustomGINEConv
+
+from utils.utils import time_it
 
 
 class GraphModel(torch.nn.Module):
@@ -113,10 +116,13 @@ class GraphModel(torch.nn.Module):
         self.mpnns = ModuleList()
         self.post_seq_models = ModuleList()
         self.mlps = ModuleList()
+        self.norms = ModuleList()
         for _ in range(num_layers):
             self.mpnns.append(mpnn_gen())
             self.post_seq_models.append(post_seq_model_gen())
             self.mlps.append(mpl_gen())
+            # layer norm
+            self.norms.append(LayerNorm(d_model))
 
         self.final_mlp = Sequential(
             Linear(d_model, d_model // 2),
@@ -126,15 +132,16 @@ class GraphModel(torch.nn.Module):
             Linear(d_model // 4, 1),
         )
 
-    def forward(self, x, pe, edge_index, edge_attr, batch):
+    def forward(self, x, pe, edge_index, edge_attr, batch, dist_mask=None):
         x_pe = self.pe_norm(pe)
         x = torch.cat(
             (self.node_emb(x.squeeze(-1)), self.pe_lin(x_pe)), 1
         ) 
         edge_attr = self.edge_emb(edge_attr)
 
-        for mpnn, post_seq_models, mlp in zip(self.mpnns, self.post_seq_models, self.mlps):
-            h_local = mpnn(x, edge_index = edge_index, edge_attr=edge_attr, batch = batch)
+        for mpnn, post_seq_models, mlp, norm in zip(self.mpnns, self.post_seq_models, self.mlps, self.norms):
+
+            h_local = mpnn(x, edge_index = edge_index, edge_attr=edge_attr, batch = batch, dist_mask = dist_mask)
             h_local = F.dropout(h_local, p=self.dropout, training=self.training)
             h_local = h_local + x
 
@@ -148,6 +155,8 @@ class GraphModel(torch.nn.Module):
                 x = h_local
             
             x = mlp(x)
+
+            x = norm(x)
 
         x = global_add_pool(x, batch)
         return self.final_mlp(x)

@@ -20,9 +20,11 @@ import numpy as np
 
 from einops import rearrange
 
+from utils.utils import time_it
+
 
 class CustomGINEConv(GINEConv):
-    def forward(self, x, edge_index, edge_attr=None, batch = None):
+    def forward(self, x, edge_index, edge_attr=None, batch = None, dist_mask = None):
         return super().forward(x, edge_index, edge_attr)
 
 class MLP(nn.Module):
@@ -60,8 +62,8 @@ class GREDMamba(torch.nn.Module):
         self.K = K
         self.local_serialization = GRED(K)
 
-    def forward(self, x, batch, edge_index = None, edge_attr = None):
-        x, mask = self.local_serialization.serialize(x, edge_index, batch, edge_attr)
+    def forward(self, x, batch, edge_index = None, edge_attr = None, dist_mask = None):
+        x, mask = self.local_serialization.serialize(x, edge_index, batch, edge_attr, dist_mask = dist_mask)
         B, N, K, H = x.shape
 
         # Shape of x: (K+1, batch_size, num_nodes, dim_h)
