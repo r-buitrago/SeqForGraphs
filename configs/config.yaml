@@ -1,7 +1,7 @@
 defaults: 
   - _self_
   - model: GREDMamba
-  - dataset: zinc
+  - dataset: lrgb
   - loss: mse
   - evaluator: loss_evaluator
   

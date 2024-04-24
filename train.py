@@ -46,13 +46,15 @@ def learning_step(
     loss_fn = get_loss_value(loss_type)
 
     precomputed_masks_path = args.dataset.params.precomputed_masks_path
-    if precomputed_masks_path is not None:
+    if os.path.exists(precomputed_masks_path):
         dist_mask = DIST_MASKS [
             batch_start : batch_start + batch.num_graphs
         ].to(
             device
         )  # (B, K+1, max_nodes, max_nodes)
-
+    else:
+        dist_mask = None
+    
     out = model(
         batch.x, batch.pe, batch.edge_index, batch.edge_attr, batch.batch, dist_mask
     )
@@ -164,6 +166,8 @@ def _main(args: DictConfig):
     _data = next(iter(test_loader))
     print(f"Dataset shape: {_data}")
 
+    OmegaConf.update(args.model.params, 'features', args.dataset.features)
+
     model = instantiate(args.model.params)
     model.to(device)
 
@@ -209,11 +213,13 @@ def _main(args: DictConfig):
     test_evaluator = instantiate(args.evaluator.test, loss_fn=get_loss_value(loss_type))
 
     precomputed_masks_path = args.dataset.params.precomputed_masks_path
-    if precomputed_masks_path is not None:
+    if os.path.exists(precomputed_masks_path):
         print("Loading precomputed masks")
         global DIST_MASKS 
         DIST_MASKS = torch.load(precomputed_masks_path) # (N, K+1, max_nodes, max_nodes)
         print("Precomputed masks loaded")
+    else:
+        DIST_MASKS = None
 
     for epoch in range(args.num_epochs):
         model, train_time = train(

@@ -1,0 +1,9 @@
+name: lrgb
+
+params: 
+  _target_: dataloader.tg_datasets.get_lrgb_dataset
+  path: /home/${oc.env:USER}/data/SeqForGraphs/datasets/lrgb
+  subset: False
+  precomputed_masks_path: ./data/precomputed_dist_masks/zinc_subset:${.subset}.pt
+  
+features: 9

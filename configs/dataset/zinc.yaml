@@ -5,3 +5,5 @@ params:
   path: /home/${oc.env:USER}/data/SeqForGraphs/datasets/zinc
   subset: False
   precomputed_masks_path: ./data/precomputed_dist_masks/zinc_subset:${.subset}.pt
+  
+features: 1

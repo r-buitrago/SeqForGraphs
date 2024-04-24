@@ -5,6 +5,7 @@ params:
   mpnn_type: GREDMamba
   post_seq_model: mamba
   global_serialization_type: node_order
+  features: 0
   d_model: 8
   pe_dim: 8
   num_layers: 4

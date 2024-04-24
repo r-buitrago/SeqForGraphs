@@ -49,6 +49,7 @@ class GraphModel(torch.nn.Module):
         mpnn_type: str,
         post_seq_model: str,
         global_serialization_type: str,
+        features: int, 
         d_model: int = 64,
         pe_dim: int = 8,
         num_layers: int = 10,
@@ -64,8 +65,12 @@ class GraphModel(torch.nn.Module):
     ):
         super().__init__()
 
-        self.node_emb = Embedding(
-            28, d_model - pe_dim
+        # self.node_emb = Embedding(
+        #     28, d_model - pe_dim
+        # )  # (# max_nodes, #embedding_dim)
+
+        self.node_emb = Linear(
+          features, d_model - pe_dim
         )  # (# max_nodes, #embedding_dim)
         self.pe_lin = Linear(20, pe_dim)
         self.pe_norm = BatchNorm1d(20)
@@ -134,8 +139,15 @@ class GraphModel(torch.nn.Module):
 
     def forward(self, x, pe, edge_index, edge_attr, batch, dist_mask=None):
         x_pe = self.pe_norm(pe)
+
+        # x = torch.cat(
+        #     (self.node_emb(x.squeeze(-1)), self.pe_lin(x_pe)), 1
+        # ) 
+
+        import pdb; pdb.set_trace()
+
         x = torch.cat(
-            (self.node_emb(x.squeeze(-1)), self.pe_lin(x_pe)), 1
+            (self.node_emb(x.float()), self.pe_lin(x_pe)), 1
         ) 
         edge_attr = self.edge_emb(edge_attr)
 
