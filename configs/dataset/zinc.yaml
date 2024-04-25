@@ -2,8 +2,10 @@ name: zinc
 
 params: 
   _target_: dataloader.tg_datasets.get_zinc_dataset
-  path: /home/${oc.env:USER}/data/SeqForGraphs/datasets/zinc
+  path: /jet/home/${oc.env:USER}/data/SeqForGraphs/datasets/zinc
   subset: False
   precomputed_masks_path: ./data/precomputed_dist_masks/zinc_subset:${.subset}.pt
   
-features: 1
+feature_dim: 1
+edge_dim: 1
+classes: 1
