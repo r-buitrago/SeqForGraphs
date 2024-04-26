@@ -45,11 +45,11 @@ def get_zinc_dataset(path, subset, split="train", precomputed_masks_path=None):
         # precomputed_masks_path=precomputed_masks_path,
     )
 
-def get_lrgb_dataset(path, name, split="train", precomputed_masks_path=None):
+def get_lrgb_dataset(path, subset, split="train", precomputed_masks_path=None):
     transform = T.AddRandomWalkPE(walk_length=20, attr_name="pe")
     return LRGBDataset(
         path,
-        name=name,
+        name=subset,
         split=split,
         transform=transform,
         # precomputed_masks_path=precomputed_masks_path,

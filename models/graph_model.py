@@ -162,17 +162,14 @@ class GraphModel(torch.nn.Module):
             x = torch.cat(
                 (self.node_emb(x.squeeze(-1)), self.pe_lin(x_pe)), 1
             ) 
+            edge_attr = self.edge_emb(edge_attr)
         elif self.embed_type == "linear":
             x = torch.cat(
                 (self.node_emb(x.float()), self.pe_lin(x_pe)), 1
             ) 
+            edge_attr = self.edge_emb(edge_attr.float())
         else:
             raise ValueError(f"This embedding type {self.embed_type} is not valid")
-
-        if edge_attr.dim() == 1:
-            edge_attr = edge_attr.unsqueeze(dim=1)
-
-        edge_attr = self.edge_emb(edge_attr.float())
 
         for mpnn, post_seq_models, mlp, norm in zip(self.mpnns, self.post_seq_models, self.mlps, self.norms):
 
