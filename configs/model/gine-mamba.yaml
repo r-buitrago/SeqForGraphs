@@ -8,6 +8,7 @@ params:
   feature_dim: 0
   edge_dim: 0
   classes: 0
+  embed_type: embedding
   d_model: 64
   pe_dim: 8
   num_layers: 4

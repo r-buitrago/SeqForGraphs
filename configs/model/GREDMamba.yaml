@@ -7,6 +7,7 @@ params:
   global_serialization_type: null
   feature_dim: 0
   edge_dim: 0
+  embed_type: embedding
   classes: 0
   d_model: 16
   pe_dim: 8

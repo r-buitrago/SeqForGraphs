@@ -49,7 +49,10 @@ class GraphModel(torch.nn.Module):
         mpnn_type: str,
         post_seq_model: str,
         global_serialization_type: str,
-        features: int, 
+        feature_dim: int, 
+        edge_dim: int, 
+        classes: int,
+        embed_type: str,
         d_model: int = 64,
         pe_dim: int = 8,
         num_layers: int = 10,
@@ -65,16 +68,31 @@ class GraphModel(torch.nn.Module):
     ):
         super().__init__()
 
-        # self.node_emb = Embedding(
-        #     28, d_model - pe_dim
-        # )  # (# max_nodes, #embedding_dim)
 
-        self.node_emb = Linear(
-          features, d_model - pe_dim
-        )  # (# max_nodes, #embedding_dim)
+        self.embed_type = embed_type
+
+        if embed_type == "embedding":
+
+            self.node_emb = Embedding(
+                28, d_model - pe_dim
+            )  # (# max_nodes, #embedding_dim)
+            self.edge_emb = Embedding(4, d_model)
+
+        elif embed_type == "linear":
+
+            self.node_emb = Linear(
+                feature_dim, d_model - pe_dim
+            )  
+            self.edge_emb = Linear(
+                edge_dim, d_model
+            )
+
+        else:
+            raise ValueError(f"This embedding type {embed_type} is not valid")
+
         self.pe_lin = Linear(20, pe_dim)
         self.pe_norm = BatchNorm1d(20)
-        self.edge_emb = Embedding(4, d_model)
+
         self.mpnn_type = mpnn_type
         self.post_seq_model = post_seq_model
         self.global_serialization_type = global_serialization_type
@@ -134,22 +152,27 @@ class GraphModel(torch.nn.Module):
             ReLU(),
             Linear(d_model // 2, d_model // 4),
             ReLU(),
-            Linear(d_model // 4, 1),
+            Linear(d_model // 4, classes),
         )
 
     def forward(self, x, pe, edge_index, edge_attr, batch, dist_mask=None):
         x_pe = self.pe_norm(pe)
 
-        # x = torch.cat(
-        #     (self.node_emb(x.squeeze(-1)), self.pe_lin(x_pe)), 1
-        # ) 
+        if self.embed_type == "embedding":
+            x = torch.cat(
+                (self.node_emb(x.squeeze(-1)), self.pe_lin(x_pe)), 1
+            ) 
+        elif self.embed_type == "linear":
+            x = torch.cat(
+                (self.node_emb(x.float()), self.pe_lin(x_pe)), 1
+            ) 
+        else:
+            raise ValueError(f"This embedding type {self.embed_type} is not valid")
 
-        import pdb; pdb.set_trace()
+        if edge_attr.dim() == 1:
+            edge_attr = edge_attr.unsqueeze(dim=1)
 
-        x = torch.cat(
-            (self.node_emb(x.float()), self.pe_lin(x_pe)), 1
-        ) 
-        edge_attr = self.edge_emb(edge_attr)
+        edge_attr = self.edge_emb(edge_attr.float())
 
         for mpnn, post_seq_models, mlp, norm in zip(self.mpnns, self.post_seq_models, self.mlps, self.norms):
 

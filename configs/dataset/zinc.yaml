@@ -9,3 +9,4 @@ params:
 feature_dim: 1
 edge_dim: 1
 classes: 1
+embed_type: embedding

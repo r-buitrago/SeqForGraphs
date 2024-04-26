@@ -64,9 +64,12 @@ def learning_step(
 
 
 def get_loss_value(loss_type):
-    # return torch.nn.BCEWithLogitsLoss()
     if loss_type == "mse":
         return torch.nn.MSELoss()
+    elif loss_type == "bce":
+        return torch.nn.BCEWithLogitsLoss()
+    elif loss_type == "ce":
+        return torch.nn.CrossEntropyLoss()
     else:
         raise ValueError(f"Loss type {loss_type} not supported")
 
@@ -170,6 +173,8 @@ def _main(args: DictConfig):
     OmegaConf.update(args.model.params, 'feature_dim', args.dataset.feature_dim)
     OmegaConf.update(args.model.params, 'edge_dim', args.dataset.edge_dim)
     OmegaConf.update(args.model.params, 'classes', args.dataset.classes)
+    OmegaConf.update(args.model.params, 'embed_type', args.dataset.embed_type)
+    
 
     model = instantiate(args.model.params)
     model.to(device)

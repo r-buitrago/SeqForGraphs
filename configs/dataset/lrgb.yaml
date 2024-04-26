@@ -3,9 +3,10 @@ name: lrgb
 params: 
   _target_: dataloader.tg_datasets.get_lrgb_dataset
   path: /jet/home/${oc.env:USER}/data/SeqForGraphs/datasets/lrgb
-  subset: False
+  name: Peptides-func
   precomputed_masks_path: ./data/precomputed_dist_masks/zinc_subset:${.subset}.pt
   
 feature_dim: 9
 edge_dim: 3
 classes: 10
+embed_type: linear
