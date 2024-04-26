@@ -26,7 +26,7 @@ wandb:
   name: '${model.name}_${dataset.name}_${now:%Y-%m-%d_%H-%M-%S}'
 
 workdir: 
-  root: '/home/${oc.env:USER}/data/${project_name}'
+  root: '/jet/home/${oc.env:USER}/data/${project_name}'
   name: 'models/${model.name}/${wandb.group}/${now:%Y-%m-%d_%H-%M-%S}'
   checkpoint_path: '${workdir.root}/${workdir.name}/ckpt.pth'
 

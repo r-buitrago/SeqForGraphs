@@ -1,4 +1,4 @@
-from torch_geometric.datasets import ZINC
+from torch_geometric.datasets import ZINC, LRGBDataset
 import torch_geometric.transforms as T
 from models.serialization import GRED
 import torch
@@ -40,6 +40,16 @@ def get_zinc_dataset(path, subset, split="train", precomputed_masks_path=None):
     return ZINC(
         path,
         subset=subset,
+        split=split,
+        transform=transform,
+        # precomputed_masks_path=precomputed_masks_path,
+    )
+
+def get_lrgb_dataset(path, subset, split="train", precomputed_masks_path=None):
+    transform = T.AddRandomWalkPE(walk_length=20, attr_name="pe")
+    return LRGBDataset(
+        path,
+        name=subset,
         split=split,
         transform=transform,
         # precomputed_masks_path=precomputed_masks_path,

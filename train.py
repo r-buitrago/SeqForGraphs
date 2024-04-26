@@ -46,13 +46,15 @@ def learning_step(
     loss_fn = get_loss_value(loss_type)
 
     precomputed_masks_path = args.dataset.params.precomputed_masks_path
-    if precomputed_masks_path is not None:
+    if os.path.exists(precomputed_masks_path):
         dist_mask = DIST_MASKS [
             batch_start : batch_start + batch.num_graphs
         ].to(
             device
         )  # (B, K+1, max_nodes, max_nodes)
-
+    else:
+        dist_mask = None
+    
     out = model(
         batch.x, batch.pe, batch.edge_index, batch.edge_attr, batch.batch, dist_mask
     )
@@ -64,6 +66,10 @@ def learning_step(
 def get_loss_value(loss_type):
     if loss_type == "mse":
         return torch.nn.MSELoss()
+    elif loss_type == "bce":
+        return torch.nn.BCEWithLogitsLoss()
+    elif loss_type == "ce":
+        return torch.nn.CrossEntropyLoss()
     else:
         raise ValueError(f"Loss type {loss_type} not supported")
 
@@ -164,6 +170,12 @@ def _main(args: DictConfig):
     _data = next(iter(test_loader))
     print(f"Dataset shape: {_data}")
 
+    OmegaConf.update(args.model.params, 'feature_dim', args.dataset.feature_dim)
+    OmegaConf.update(args.model.params, 'edge_dim', args.dataset.edge_dim)
+    OmegaConf.update(args.model.params, 'classes', args.dataset.classes)
+    OmegaConf.update(args.model.params, 'embed_type', args.dataset.embed_type)
+    
+
     model = instantiate(args.model.params)
     model.to(device)
 
@@ -209,11 +221,13 @@ def _main(args: DictConfig):
     test_evaluator = instantiate(args.evaluator.test, loss_fn=get_loss_value(loss_type))
 
     precomputed_masks_path = args.dataset.params.precomputed_masks_path
-    if precomputed_masks_path is not None:
+    if os.path.exists(precomputed_masks_path):
         print("Loading precomputed masks")
         global DIST_MASKS 
         DIST_MASKS = torch.load(precomputed_masks_path) # (N, K+1, max_nodes, max_nodes)
         print("Precomputed masks loaded")
+    else:
+        DIST_MASKS = None
 
     for epoch in range(args.num_epochs):
         model, train_time = train(

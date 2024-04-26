@@ -5,6 +5,10 @@ params:
   mpnn_type: gine
   post_seq_model: null
   global_serialization_type: null
+  feature_dim: 0
+  edge_dim: 0
+  classes: 0
+  embed_type: embedding
   d_model: 80
   pe_dim: 8
   num_layers: 4
