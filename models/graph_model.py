@@ -159,12 +159,17 @@ class GraphModel(torch.nn.Module):
         )
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+
+>>>>>>> bb642d1 (ablations conflicts solved)
     def forward(self, x, pe, edge_index, edge_attr, batch, dist_mask=None, calculate_embeddings_diff=False, calculate_embeddings=False):
         # x_pe = self.pe_norm(pe)
         # x = torch.cat(
         #     (self.node_emb(x.squeeze(-1)), self.pe_lin(x_pe)), 1
         # ) 
 
+<<<<<<< HEAD
         x = self.node_emb(x.float())
         edge_attr = self.edge_emb(edge_attr.float())
 
@@ -191,6 +196,8 @@ class GraphModel(torch.nn.Module):
                 
 =======
     def forward(self, x, pe, edge_index, edge_attr, batch, dist_mask=None):
+=======
+>>>>>>> bb642d1 (ablations conflicts solved)
         x_pe = self.pe_norm(pe)
 
         if self.embed_type == "embedding":
@@ -206,10 +213,17 @@ class GraphModel(torch.nn.Module):
         else:
             raise ValueError(f"This embedding type {self.embed_type} is not valid")
 
-        for mpnn, post_seq_models, mlp, norm in zip(
-            self.mpnns, self.post_seq_models, self.mlps, self.norms
-        ):
+        # x = self.node_emb(x.float())
+        # edge_attr = self.edge_emb(edge_attr.float())
+
+
+        layer_embeddings_diff = []
+        layer_embeddings = []
+        layers = 0
+
+        for mpnn, post_seq_models, mlp, norm in zip(self.mpnns, self.post_seq_models, self.mlps, self.norms):
             z = norm(x)
+<<<<<<< HEAD
             h_local = mpnn(
                 z,
                 edge_index=edge_index,
@@ -218,6 +232,22 @@ class GraphModel(torch.nn.Module):
                 dist_mask=dist_mask,
             )
 >>>>>>> 55a73c2 ([pept-func+zinc+final architecture changes])
+=======
+            h_local = mpnn(z, edge_index = edge_index, edge_attr=edge_attr, batch = batch, dist_mask = dist_mask)
+
+            if calculate_embeddings_diff:
+                source_nodes, target_nodes = edge_index
+                diff = h_local[target_nodes] - h_local[source_nodes]
+                total_diff = torch.linalg.norm(diff, dim=1, ord=2).mean()
+                layer_embeddings_diff.append(total_diff)
+
+            if calculate_embeddings:
+                h_local.retain_grad()
+                layer_embeddings.append(h_local)
+
+            layers += 1
+                
+>>>>>>> bb642d1 (ablations conflicts solved)
             h_local = F.dropout(h_local, p=self.dropout, training=self.training)
             # x = h_local + x
 
@@ -236,9 +266,13 @@ class GraphModel(torch.nn.Module):
             x = mlp(z) + z
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 
             out = norm(x)
 
+=======
+        out = x #TODO: out = norm(x)
+>>>>>>> bb642d1 (ablations conflicts solved)
         x = global_add_pool(out, batch)
         return self.final_mlp(x), layer_embeddings_diff, layer_embeddings
 
@@ -246,7 +280,11 @@ class GraphModel(torch.nn.Module):
         #     layer_embeddings = torch.stack(layer_embeddings)
         # if len(layer_embeddings_diff) > 0:
         #     layer_embeddings_diff = torch.stack(layer_embeddings_diff)
+<<<<<<< HEAD
 =======
         x = global_add_pool(x, batch)
         return self.final_mlp(x)
 >>>>>>> 55a73c2 ([pept-func+zinc+final architecture changes])
+=======
+
+>>>>>>> bb642d1 (ablations conflicts solved)

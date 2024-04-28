@@ -63,7 +63,11 @@ def learning_step(
     batch.to(device)
     loss_fn = get_loss_value(loss_type)
 
+<<<<<<< HEAD
     precomputed_masks_path = args.dataset.params_train.precomputed_masks_path
+=======
+    precomputed_masks_path = args.dataset.params.precomputed_masks_path
+>>>>>>> bb642d1 (ablations conflicts solved)
     if precomputed_masks_path is not None:
         dist_mask = DIST_MASKS[
             batch_start : batch_start + batch.num_graphs
@@ -77,6 +81,7 @@ def learning_step(
         batch.x, batch.pe, batch.edge_index, batch.edge_attr, batch.batch, dist_mask, calculate_embedding_diff, calculate_embedding
     )
 <<<<<<< HEAD
+<<<<<<< HEAD
     loss = loss_fn(out.squeeze(), batch.y)
     evaluator.evaluate(out.squeeze(), batch.y)
     return loss, embedding_diff, embeddings
@@ -85,6 +90,17 @@ def learning_step(
     evaluator.evaluate(out.squeeze(), batch.y.float())
     return loss
 >>>>>>> 55a73c2 ([pept-func+zinc+final architecture changes])
+=======
+
+    # loss = loss_fn(out.squeeze(), batch.y.float())
+    # evaluator.evaluate(out.squeeze(), batch.y.float())
+    # return loss
+
+    loss = loss_fn(out.squeeze(), batch.y.float())
+    evaluator.evaluate(out.squeeze(), batch.y.float())
+    return loss, embedding_diff, embeddings
+
+>>>>>>> bb642d1 (ablations conflicts solved)
 
 
 def get_loss_value(loss_type):
@@ -341,6 +357,14 @@ def _main(args: DictConfig):
         args.evaluator.train, loss_fn=get_loss_value(loss_type)
     )
     test_evaluator = instantiate(args.evaluator.test, loss_fn=get_loss_value(loss_type))
+    
+    precomputed_masks_path = args.dataset.params.precomputed_masks_path
+    if precomputed_masks_path is not None:
+        print("Loading precomputed masks")
+        global DIST_MASKS 
+        DIST_MASKS = torch.load(precomputed_masks_path) # (N, K+1, max_nodes, max_nodes)
+        print("Precomputed masks loaded")
+
 
     precomputed_masks_path = args.dataset.params_train.precomputed_masks_path
     if precomputed_masks_path is not None:

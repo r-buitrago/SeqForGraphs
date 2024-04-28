@@ -12,7 +12,10 @@ log_frequency: 10
 evaluate_frequency: 1
 oversmoothing_frequency: 2
 oversquashing_frequency: 2
+<<<<<<< HEAD
 
+=======
+>>>>>>> bb642d1 (ablations conflicts solved)
 
 print: True
 use_wandb: False
