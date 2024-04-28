@@ -62,6 +62,7 @@ class GraphModel(torch.nn.Module):
         dropout: float = 0.0,
         act_kwargs: Optional[Dict[str, Any]] = None,
         act: str = "relu",
+        K: int = 5,
         # mpnn_kwargs: Optional[Dict[str, Any]] = None,
         # post_seq_model_kwargs: Optional[Dict[str, Any]] = None,
         # serialization_kwargs: Optional[Dict[str, Any]] = None,
@@ -107,7 +108,7 @@ class GraphModel(torch.nn.Module):
             mpnn_gen = lambda: CustomGINEConv(nn)
         elif mpnn_type == "GREDMamba":
             mpnn_gen = lambda: GREDMamba(
-                d_model=d_model, d_state=d_state, d_conv=d_conv, expand=1
+                d_model=d_model, d_state=d_state, d_conv=d_conv, expand=1, K=K
             )
         else:
             raise ValueError(f"MPNN type {mpnn_type} not recognized")

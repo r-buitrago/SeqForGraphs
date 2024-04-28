@@ -90,31 +90,40 @@ class LocalSerialization:
         :return mask: (B,N)"""
         pass
 
+
 def sparse_to_dense(compressed_dist_mask, n_nodes, K):
     # compressed_dist_mask (M, 4) == (grad_idx, node1, node2, dist)
 
+    # contiguous compressed_dist_mask
+    compressed_dist_mask = compressed_dist_mask.contiguous()
+
     compressed_dist_mask = compressed_dist_mask[compressed_dist_mask[:, 1] < n_nodes]
     compressed_dist_mask = compressed_dist_mask[compressed_dist_mask[:, 2] < n_nodes]
+    compressed_dist_mask = compressed_dist_mask[compressed_dist_mask[:, 3] < K]
 
-    unique_graph_ids = torch.unique(compressed_dist_mask[:, 0])
+    unique_graph_ids, graph_ids = torch.unique(
+        compressed_dist_mask[:, 0], return_inverse=True, sorted=False
+    )
     B = len(unique_graph_ids)
 
-    # covert to unsparse (batch_size, K+1, num_nodes, num_nodes)
+    # covert to dense (batch_size, K+1, num_nodes, num_nodes)
     dist_mask = torch.zeros(B, K, n_nodes, n_nodes).to("cuda")
 
-    
-    sorted_unique_graph_ids, _ = torch.sort(unique_graph_ids)
-    new_graph_ids = torch.searchsorted(sorted_unique_graph_ids, compressed_dist_mask[:, 0])
+    # sorted_unique_graph_ids, _ = torch.sort(unique_graph_ids)
+    # new_graph_ids = torch.searchsorted(
+    #     sorted_unique_graph_ids, compressed_dist_mask[:, 0]
+    # )
 
     node1s = compressed_dist_mask[:, 1]
     node2s = compressed_dist_mask[:, 2]
     distances = compressed_dist_mask[:, 3]
 
-    dist_mask[new_graph_ids, distances, node1s, node2s] = 1
+    dist_mask[graph_ids, distances, node1s, node2s] = 1
 
     # reverse it in distances
     dist_mask = dist_mask.flip(1)
     return dist_mask
+
 
 class NodeOrder(GlobalSerialization):
     name = "NodeOrder"
@@ -158,10 +167,7 @@ class GRED(LocalSerialization):
 
         else:
             dist_mask = sparse_to_dense(compressed_dist_mask, n_nodes, self.K + 1)
-            
-
-            
-
+        
         out = torch.swapaxes(dist_mask, 0, 1) @ inputs  # (K, B, N, H)
         out = rearrange(out, "k b n h -> b n k h")
         return out, mask
