@@ -9,7 +9,7 @@ params:
   edge_dim: 0
   embed_type: embedding
   classes: 0
-  d_model: 32
+  d_model: 128
   pe_dim: 8
   num_layers: 4
   d_conv: 4
@@ -17,6 +17,7 @@ params:
   dropout: 0.0
   act_kwargs: null
   act: relu
+  K: 25
 
 optimizer:
   _target_: torch.optim.Adam
@@ -25,7 +26,7 @@ optimizer:
 
 warmup_epochs: 1
 
-batch_size: 128
+batch_size: 16
 
 scheduler: cosine
 # scheduler: step

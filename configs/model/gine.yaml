@@ -17,6 +17,7 @@ params:
   dropout: 0.0
   act_kwargs: null
   act: relu
+  K: 25
 
 optimizer:
   _target_: torch.optim.Adam

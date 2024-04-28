@@ -4,7 +4,7 @@ params_train:
   _target_: dataloader.tg_datasets.get_lrgb_dataset
   path: ${DATA_DIR}/datasets/lrgb
   subset: Peptides-struct
-  precomputed_masks_path: ./data/precomputed_dist_masks/pept/train_${.n_samples_max}.pt
+  precomputed_masks_path: ./data/precomputed_dist_masks/pept/split=train_n=${.n_samples_max}_k=${model.params.K}.pt
   split: train
   n_samples_max: 2500
 
@@ -12,7 +12,7 @@ params_test:
   _target_: dataloader.tg_datasets.get_lrgb_dataset
   path: ${DATA_DIR}/datasets/lrgb
   subset: Peptides-struct
-  precomputed_masks_path: ./data/precomputed_dist_masks/pept/val_${.n_samples_max}.pt
+  precomputed_masks_path: ./data/precomputed_dist_masks/pept/split=val_n=${.n_samples_max}_k=${model.params.K}.pt
   split: val
   n_samples_max: 250
 
