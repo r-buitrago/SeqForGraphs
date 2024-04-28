@@ -22,8 +22,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def get_dataset(args, batch_size):
-    train_data = instantiate(args.dataset.params)
-    test_data = instantiate(args.dataset.params, split="test")
+    train_data = instantiate(args.dataset.params_train)
+    test_data = instantiate(args.dataset.params_test)
     train_loader = DataLoader(
         train_data, batch_size=batch_size, num_workers=args.num_workers, shuffle=True
     )
@@ -45,18 +45,13 @@ def learning_step(
     batch.to(device)
     loss_fn = get_loss_value(loss_type)
 
-    precomputed_masks_path = args.dataset.params.precomputed_masks_path
-    if os.path.exists(precomputed_masks_path):
-        dist_mask = DIST_MASKS [
-            batch_start : batch_start + batch.num_graphs
-        ].to(
-            device
-        )  # (B, K+1, max_nodes, max_nodes)
-    else:
-        dist_mask = None
-    
     out = model(
-        batch.x, batch.pe, batch.edge_index, batch.edge_attr, batch.batch, dist_mask
+        batch.x,
+        batch.pe,
+        batch.edge_index,
+        batch.edge_attr,
+        batch.batch,
+        batch.get("dist_mask", None),
     )
     loss = loss_fn(out.squeeze(), batch.y)
     evaluator.evaluate(out.squeeze(), batch.y)
@@ -133,6 +128,11 @@ def main(args: DictConfig):
 
 
 def _main(args: DictConfig):
+    OmegaConf.update(args.model.params, "feature_dim", args.dataset.feature_dim)
+    OmegaConf.update(args.model.params, "edge_dim", args.dataset.edge_dim)
+    OmegaConf.update(args.model.params, "classes", args.dataset.classes)
+    OmegaConf.update(args.model.params, "embed_type", args.dataset.embed_type)
+
     if not args.print:
         log.setLevel(logging.WARNING)
     log.info(OmegaConf.to_yaml(args))
@@ -170,12 +170,6 @@ def _main(args: DictConfig):
     _data = next(iter(test_loader))
     print(f"Dataset shape: {_data}")
 
-    OmegaConf.update(args.model.params, 'feature_dim', args.dataset.feature_dim)
-    OmegaConf.update(args.model.params, 'edge_dim', args.dataset.edge_dim)
-    OmegaConf.update(args.model.params, 'classes', args.dataset.classes)
-    OmegaConf.update(args.model.params, 'embed_type', args.dataset.embed_type)
-    
-
     model = instantiate(args.model.params)
     model.to(device)
 
@@ -190,6 +184,7 @@ def _main(args: DictConfig):
     optimizer = instantiate(args.model.optimizer, params=model.parameters())
 
     iterations = args.num_epochs * len(train_loader.dataset) // args.model.batch_size
+    # iterations = args.num_epochs
     if args.model.scheduler == "cosine":
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=iterations
@@ -219,15 +214,6 @@ def _main(args: DictConfig):
         args.evaluator.train, loss_fn=get_loss_value(loss_type)
     )
     test_evaluator = instantiate(args.evaluator.test, loss_fn=get_loss_value(loss_type))
-
-    precomputed_masks_path = args.dataset.params.precomputed_masks_path
-    if os.path.exists(precomputed_masks_path):
-        print("Loading precomputed masks")
-        global DIST_MASKS 
-        DIST_MASKS = torch.load(precomputed_masks_path) # (N, K+1, max_nodes, max_nodes)
-        print("Precomputed masks loaded")
-    else:
-        DIST_MASKS = None
 
     for epoch in range(args.num_epochs):
         model, train_time = train(

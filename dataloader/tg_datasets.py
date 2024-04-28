@@ -35,6 +35,41 @@ class CustomZINCDataset(Dataset):
         return len(self.tg_dataset)
 
 
+class CustomLRGBDataset(Dataset):
+    def __init__(
+        self,
+        path,
+        name,
+        precomputed_masks_path=None,
+        split="train",
+        transform=None,
+        n_samples_max=100,
+    ):
+        super().__init__()
+        self.tg_dataset = LRGBDataset(path, name=name, split=split, transform=transform)
+        if precomputed_masks_path is not None:
+            with open(precomputed_masks_path, "rb") as f:
+                self.precomputed_masks = torch.load(
+                    f
+                )  # (M, 4) == (graph_idx, node1, node2, dist)
+                assert len(torch.unique(self.precomputed_masks[:, 0])) == n_samples_max
+        else:
+            self.precomputed_masks = None
+
+        self.n_samples_max = n_samples_max
+
+    def __getitem__(self, idx):
+        if idx >= self.n_samples_max:
+            raise IndexError
+        g = self.tg_dataset[idx]
+        if self.precomputed_masks is not None:
+            g.dist_mask = self.precomputed_masks[self.precomputed_masks[:, 0] == idx]
+        return g
+
+    def __len__(self):
+        return self.n_samples_max
+
+
 def get_zinc_dataset(path, subset, split="train", precomputed_masks_path=None):
     transform = T.AddRandomWalkPE(walk_length=20, attr_name="pe")
     return ZINC(
@@ -45,12 +80,20 @@ def get_zinc_dataset(path, subset, split="train", precomputed_masks_path=None):
         # precomputed_masks_path=precomputed_masks_path,
     )
 
-def get_lrgb_dataset(path, subset, split="train", precomputed_masks_path=None):
+
+def get_lrgb_dataset(
+    path,
+    subset,
+    n_samples_max,
+    split="train",
+    precomputed_masks_path=None,
+):
     transform = T.AddRandomWalkPE(walk_length=20, attr_name="pe")
-    return LRGBDataset(
+    return CustomLRGBDataset(
         path,
         name=subset,
         split=split,
         transform=transform,
-        # precomputed_masks_path=precomputed_masks_path,
+        precomputed_masks_path=precomputed_masks_path,
+        n_samples_max=n_samples_max,
     )

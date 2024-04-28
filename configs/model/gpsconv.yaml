@@ -19,7 +19,7 @@ optimizer:
 
 warmup_epochs: 1
 
-batch_size: 32
+batch_size: 128
 
 # scheduler: cosine
 scheduler: step

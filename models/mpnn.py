@@ -63,7 +63,7 @@ class GREDMamba(torch.nn.Module):
         self.local_serialization = GRED(K)
 
     def forward(self, x, batch, edge_index = None, edge_attr = None, dist_mask = None):
-        x, mask = self.local_serialization.serialize(x, edge_index, batch, edge_attr, dist_mask = dist_mask)
+        x, mask = self.local_serialization.serialize(x, edge_index, batch, edge_attr, compressed_dist_mask = dist_mask)
         B, N, K, H = x.shape
 
         # Shape of x: (K+1, batch_size, num_nodes, dim_h)

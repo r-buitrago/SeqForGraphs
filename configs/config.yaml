@@ -1,35 +1,37 @@
 defaults: 
   - _self_
-  - model: GREDMamba
-  - dataset: zinc
+  - model: gine
+  - dataset: peptides-struct
   - loss: mse
   - evaluator: loss_evaluator
   
 seed: 0
-num_epochs: 20
-log_frequency: 50
+num_epochs: 50
+log_frequency: 10
 evaluate_frequency: 1
 
 print: True
-use_wandb: False
-log_model: False
+use_wandb: True
+log_model: True
 
 num_workers: 4
 num_threads: 4
 
 project_name: SeqForGraphs
 
+DATA_DIR: /home/${oc.env:USER}/data/${project_name}
+
 wandb:
   tags: []
   project: ${project_name}
-  group: 'tmp'
+  group: 'pept-base'
   name: '${model.name}_${dataset.name}_${now:%Y-%m-%d_%H-%M-%S}'
 
 workdir: 
-  root: '/jet/home/${oc.env:USER}/data/${project_name}'
+  root: ${DATA_DIR}
   name: 'models/${model.name}/${wandb.group}/${now:%Y-%m-%d_%H-%M-%S}'
   checkpoint_path: '${workdir.root}/${workdir.name}/ckpt.pth'
 
 hydra:
   run:
-    dir: /home/${oc.env:USER}/data/${project_name}/outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
+    dir: ${DATA_DIR}/outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}

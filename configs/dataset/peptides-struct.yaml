@@ -1,0 +1,23 @@
+name: peptides-struct
+
+params_train: 
+  _target_: dataloader.tg_datasets.get_lrgb_dataset
+  path: ${DATA_DIR}/datasets/lrgb
+  subset: Peptides-struct
+  precomputed_masks_path: ./data/precomputed_dist_masks/pept/train_${.n_samples_max}.pt
+  split: train
+  n_samples_max: 2500
+
+params_test: 
+  _target_: dataloader.tg_datasets.get_lrgb_dataset
+  path: ${DATA_DIR}/datasets/lrgb
+  subset: Peptides-struct
+  precomputed_masks_path: ./data/precomputed_dist_masks/pept/val_${.n_samples_max}.pt
+  split: val
+  n_samples_max: 250
+
+  
+feature_dim: 9
+edge_dim: 3
+classes: 11 # quantities to regress in this case
+embed_type: linear

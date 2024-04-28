@@ -9,7 +9,7 @@ params:
   edge_dim: 0
   embed_type: embedding
   classes: 0
-  d_model: 16
+  d_model: 32
   pe_dim: 8
   num_layers: 4
   d_conv: 4
@@ -27,8 +27,8 @@ warmup_epochs: 1
 
 batch_size: 128
 
-# scheduler: cosine
-scheduler: step
+scheduler: cosine
+# scheduler: step
 step_size: 150
 gamma: 0.5
 
