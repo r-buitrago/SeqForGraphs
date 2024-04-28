@@ -7,8 +7,10 @@ defaults:
   
 seed: 0
 num_epochs: 20
-log_frequency: 50
-evaluate_frequency: 1
+log_frequency: 1
+evaluate_frequency: 5
+oversmoothing_frequency: 2
+oversquashing_frequency: 2
 
 print: True
 use_wandb: False

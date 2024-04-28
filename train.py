@@ -5,6 +5,8 @@ from hydra.utils import instantiate
 import wandb
 from omegaconf import OmegaConf, DictConfig
 
+import pickle
+import random
 import torch
 from timeit import default_timer
 
@@ -41,6 +43,8 @@ def learning_step(
     is_training=True,
     evaluator=DummyEvaluator,
     batch_start=0,
+    calculate_embedding_diff=False,
+    calculate_embedding=False
 ):
     batch.to(device)
     loss_fn = get_loss_value(loss_type)
@@ -52,13 +56,15 @@ def learning_step(
         ].to(
             device
         )  # (B, K+1, max_nodes, max_nodes)
-
-    out = model(
-        batch.x, batch.pe, batch.edge_index, batch.edge_attr, batch.batch, dist_mask
+    else:
+        dist_mask = None
+    
+    out, embedding_diff, embeddings = model(
+        batch.x, batch.pe, batch.edge_index, batch.edge_attr, batch.batch, dist_mask, calculate_embedding_diff, calculate_embedding
     )
     loss = loss_fn(out.squeeze(), batch.y)
     evaluator.evaluate(out.squeeze(), batch.y)
-    return loss
+    return loss, embedding_diff, embeddings
 
 
 def get_loss_value(loss_type):
@@ -81,7 +87,7 @@ def train(
     t1 = default_timer()
     batch_timer = default_timer()
     for i, batch in enumerate(train_loader):
-        loss = learning_step(
+        loss, _, _ = learning_step(
             args,
             model,
             batch,
@@ -106,7 +112,7 @@ def test(args, test_loader, model, loss_type, evaluator=DummyEvaluator):
     t1 = default_timer()
     batch_timer = default_timer()
     for i, batch in enumerate(test_loader):
-        _ = learning_step(
+        loss, _, _ = learning_step(
             args,
             model,
             batch,
@@ -120,6 +126,98 @@ def test(args, test_loader, model, loss_type, evaluator=DummyEvaluator):
     t2 = default_timer()
     return t2 - t1
 
+
+@torch.no_grad()
+def oversmoothing_statistics(args, test_loader, model, loss_type, evaluator=DummyEvaluator):
+    model.eval()
+    t1 = default_timer()
+    batch_timer = default_timer()
+
+    batch_embedding_diffs = 0
+    batches = 0
+    
+    for i, batch in enumerate(test_loader):
+
+        loss, layer_embedding_diff, _ = learning_step(
+            args,
+            model,
+            batch,
+            loss_type=loss_type,
+            evaluator=evaluator,
+            is_training=False,
+            batch_start=i,
+            calculate_embedding_diff=True
+        )
+
+        batch_embedding_diffs += layer_embedding_diff
+        batches += 1
+
+        log.debug(f"Evaluation batch time: {default_timer() - batch_timer}")
+        batch_timer = default_timer()
+
+    batch_embedding_diffs = batch_embedding_diffs / batches
+
+    log.info(f'Oversmoothing Analysis, by Layer: {batch_embedding_diffs}')
+    
+    t2 = default_timer()
+    return t2 - t1, batch_embedding_diffs 
+
+
+def oversquashing_statistics(
+    args,
+    train_loader,
+    model,
+    optimizer,
+    loss_type,
+    scheduler=None,
+    evaluator=DummyEvaluator,
+):
+    model.train()
+    t1 = default_timer()
+    batch_timer = default_timer()
+
+    sensitivity_matrix_all = 0
+    batches = 0
+
+    for i, batch in enumerate(train_loader):
+        loss, _, batch_embedding = learning_step(
+            args,
+            model,
+            batch,
+            loss_type=loss_type,
+            evaluator=evaluator,
+            batch_start=i,
+            calculate_embedding=True
+        )
+        optimizer.zero_grad()
+
+        
+        layers_, nodes_, dim_, = batch_embedding.shape
+        sensitivity_matrix = torch.zeros(layers_)
+
+        for node in random.sample(range(nodes_), 100):
+            for f in range(0, dim_):
+                batch_embedding[-1][node, f].backward(retain_graph=True)
+
+                for hidden_layer in range(layers_):
+                    if sensitivity_matrix[hidden_layer].grad != None:
+                        sensitivity_matrix[hidden_layer] += torch.norm(embeddings[hidden_layer].grad, p=1).cpu().numpy()
+                        sensitivity_matrix[hidden_layer].grad = None
+
+        sensitivity_matrix_all += sensitivity_matrix
+        batches += 1
+
+        optimizer.step()
+        if scheduler is not None:
+            scheduler.step()
+        log.debug(f"Training batch time: {default_timer() - batch_timer}")
+        batch_timer = default_timer()
+
+    sensitivity_matrix_all = sensitivity_matrix_all / batches
+    log.info(f'Oversquashing Analysis, by Layer: {sensitivity_matrix_all}')
+
+    t2 = default_timer()
+    return t2 - t1, sensitivity_matrix_all
 
 @hydra.main(config_path="configs", config_name="config", version_base=None)
 def main(args: DictConfig):
@@ -229,6 +327,23 @@ def _main(args: DictConfig):
             test_time = test(
                 args, test_loader, model, loss_type, evaluator=test_evaluator
             )
+
+        if epoch % args.oversmoothing_frequency == 0:
+            test_time, batch_embedding_diffs = oversmoothing_statistics(
+                args, test_loader, model, loss_type, evaluator=test_evaluator
+            )
+
+        if epoch % args.oversquashing_frequency == 0:
+            test_time, sensitivity_matrix_all = oversquashing_statistics(
+                args,
+                train_loader,
+                model,
+                optimizer,
+                loss_type,
+                scheduler,
+                evaluator=train_evaluator
+            )
+
         else:
             test_time = 0.0
 
@@ -256,12 +371,17 @@ def _main(args: DictConfig):
         )
 
         if args.log_model:
-            if epoch % args.log_frequency:
+            if epoch % args.log_frequency == 0:
                 checkpoint_path = os.path.join(model_folder_path, "ckpt.pt")
                 torch.save(model.state_dict(), checkpoint_path)
                 cfg_path = os.path.join(model_folder_path, "cfg.yaml")
                 with open(cfg_path, "w") as f:
                     f.write(OmegaConf.to_yaml(args))
+
+
+                log.info(
+                    f"Saving model to {checkpoint_path}"
+                )
 
 
 if __name__ == "__main__":
