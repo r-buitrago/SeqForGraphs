@@ -34,11 +34,15 @@ def check_for_done(l):
 
 parser = argparse.ArgumentParser(description="Training arguments")
 # Optimizer
+<<<<<<< HEAD
 
 # python3 scripts/pipe.py --num_runs 1 --gpu_ids ??? 
 
 # python3 scripts/pipe.py --num_runs 1 --gpu_ids 0 --wandb --print --logrun --num_epochs 500 --group_name
 
+=======
+# python3 scripts/pipe.py --num_runs 1 --gpu_ids ??? --wandb --print --logrun --num_epochs 500 --group_name
+>>>>>>> 62333bd (revert pipe)
 parser.add_argument("--num_runs", default=1, type=int, help="Number of runs to run")
 parser.add_argument(
     "--gpu_ids",
@@ -74,6 +78,7 @@ counter = 0
 NUM_EPOCHS = 200
 GROUP_NAME = "final2"
 sweep = dict(
+<<<<<<< HEAD
     d_model=("model.params.d_model", [32,64]),
     # n_layers=("model.params.num_layers", [4]),
     K=("model.params.K", [4]),
@@ -81,14 +86,27 @@ sweep = dict(
     model=("model", ["GREDMamba","gine"]),
     # n_layers=("model.params.num_layers", [10]), #, 4, 2
     # model=("model", ["gine"]), # , "gine-mamba", "GREDMamba","GREDMamba-mamba"
+=======
+    lr=("model.optimizer.lr", [0.001]),
+    n_layers=("model.params.num_layers", [6, 4, 2]),
+    model=("model", ["gine","gine-mamba","GREDMamba","GREDMamba-mamba"]),
+>>>>>>> 62333bd (revert pipe)
     dataset=("dataset", ["zinc"]),
     # dataset=("dataset", ["zinc","peptides-struct"]),
     # evaluate_frequency=('evaluate_frequency', [5]),
     batch_size=("model.batch_size", [256]),
     warmup_epochs=("model.warmup_epochs", [1]),
+<<<<<<< HEAD
     # seed=("seed", [33, 36]),  
     d_state=("model.params.d_state", [16]),
     scheduler=('model.scheduler', ['cosine']),
+=======
+    seed=("seed", [33, 36]),
+    
+    # d_model=("model.params.d_model", [64]),
+    # scheduler=('model.scheduler', ['cosine']),
+    # step_size=('model.step_size',[150]),
+>>>>>>> 62333bd (revert pipe)
 )
 
 
