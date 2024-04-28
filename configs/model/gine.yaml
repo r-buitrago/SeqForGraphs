@@ -19,6 +19,8 @@ params:
   act: relu
   K: 25
 
+use_distance_masks: False
+
 optimizer:
   _target_: torch.optim.Adam
   lr: 0.0001

@@ -49,14 +49,13 @@ class GraphModel(torch.nn.Module):
         mpnn_type: str,
         post_seq_model: str,
         global_serialization_type: str,
-        feature_dim: int, 
-        edge_dim: int, 
+        feature_dim: int,
+        edge_dim: int,
         classes: int,
         embed_type: str,
         d_model: int = 64,
         pe_dim: int = 8,
         num_layers: int = 10,
-        
         d_state: int = 16,
         d_conv: int = 4,
         dropout: float = 0.0,
@@ -69,30 +68,25 @@ class GraphModel(torch.nn.Module):
     ):
         super().__init__()
 
+        self.node_emb = Linear(feature_dim, d_model)
 
-        self.embed_type = embed_type
+        # if embed_type == "embedding":
 
-        if embed_type == "embedding":
+        #     self.node_emb = Embedding(
+        #         28, d_model - pe_dim
+        #     )  # (# max_nodes, #embedding_dim)
+        #     self.edge_emb = Embedding(4, d_model)
 
-            self.node_emb = Embedding(
-                28, d_model - pe_dim
-            )  # (# max_nodes, #embedding_dim)
-            self.edge_emb = Embedding(4, d_model)
+        # elif embed_type == "linear":
 
-        elif embed_type == "linear":
+            
+        #     self.edge_emb = Linear(edge_dim, d_model)
 
-            self.node_emb = Linear(
-                feature_dim, d_model - pe_dim
-            )  
-            self.edge_emb = Linear(
-                edge_dim, d_model
-            )
+        # else:
+        #     raise ValueError(f"This embedding type {embed_type} is not valid")
 
-        else:
-            raise ValueError(f"This embedding type {embed_type} is not valid")
-
-        self.pe_lin = Linear(20, pe_dim)
-        self.pe_norm = BatchNorm1d(20)
+        # # self.pe_lin = Linear(20, pe_dim)
+        # # self.pe_norm = BatchNorm1d(20)
 
         self.mpnn_type = mpnn_type
         self.post_seq_model = post_seq_model
@@ -100,12 +94,12 @@ class GraphModel(torch.nn.Module):
         self.dropout = dropout
 
         if mpnn_type == "gine":
-            nn = Sequential(
+            nn = lambda: Sequential(
                 Linear(d_model, d_model),
                 ReLU(),
                 Linear(d_model, d_model),
             )
-            mpnn_gen = lambda: CustomGINEConv(nn)
+            mpnn_gen = lambda: CustomGINEConv(nn())
         elif mpnn_type == "GREDMamba":
             mpnn_gen = lambda: GREDMamba(
                 d_model=d_model, d_state=d_state, d_conv=d_conv, expand=1, K=K
@@ -117,18 +111,20 @@ class GraphModel(torch.nn.Module):
             post_seq_model_gen = lambda: Mamba(
                 d_model=d_model, d_state=d_state, d_conv=d_conv, expand=1
             )
-        elif post_seq_model is None: 
+        elif post_seq_model is None:
             post_seq_model_gen = lambda: None
         else:
             raise ValueError(f"Post sequence model {post_seq_model} not recognized")
 
         if global_serialization_type == "node_order":
             self.serialization = NodeOrder()
-        elif global_serialization_type is None: 
+        elif global_serialization_type is None:
             self.serialization = None
         else:
-            raise ValueError(f"Serialization type {global_serialization_type} not recognized")
-        
+            raise ValueError(
+                f"Serialization type {global_serialization_type} not recognized"
+            )
+
         mpl_gen = lambda: Sequential(
             Linear(d_model, d_model * 2),
             activation_resolver(act, **(act_kwargs or {})),
@@ -149,47 +145,58 @@ class GraphModel(torch.nn.Module):
             self.norms.append(LayerNorm(d_model))
 
         self.final_mlp = Sequential(
-            Linear(d_model, d_model // 2),
-            ReLU(),
-            Linear(d_model // 2, d_model // 4),
-            ReLU(),
-            Linear(d_model // 4, classes),
+            Linear(d_model, classes),
         )
 
     def forward(self, x, pe, edge_index, edge_attr, batch, dist_mask=None):
-        x_pe = self.pe_norm(pe)
+        # x_pe = self.pe_norm(pe)
 
-        if self.embed_type == "embedding":
-            x = torch.cat(
-                (self.node_emb(x.squeeze(-1)), self.pe_lin(x_pe)), 1
-            ) 
-            edge_attr = self.edge_emb(edge_attr)
-        elif self.embed_type == "linear":
-            x = torch.cat(
-                (self.node_emb(x.float()), self.pe_lin(x_pe)), 1
-            ) 
-            edge_attr = self.edge_emb(edge_attr.float())
-        else:
-            raise ValueError(f"This embedding type {self.embed_type} is not valid")
+        # if self.embed_type == "embedding":
+        #     x = torch.cat(
+        #         (self.node_emb(x.squeeze(-1)), self.pe_lin(x_pe)), 1
+        #     )
+        #     edge_attr = self.edge_emb(edge_attr)
+        # elif self.embed_type == "linear":
+        #     x = torch.cat(
+        #         (self.node_emb(x.float()), self.pe_lin(x_pe)), 1
+        #     )
+        #     edge_attr = self.edge_emb(edge_attr.float())
+        # else:
+        #     raise ValueError(f"This embedding type {self.embed_type} is not valid")
 
-        for mpnn, post_seq_models, mlp, norm in zip(self.mpnns, self.post_seq_models, self.mlps, self.norms):
+        x = self.node_emb(x.float())
+        edge_attr = self.edge_emb(edge_attr.float())
 
-            h_local = mpnn(x, edge_index = edge_index, edge_attr=edge_attr, batch = batch, dist_mask = dist_mask)
+        for mpnn, post_seq_models, mlp, norm in zip(
+            self.mpnns, self.post_seq_models, self.mlps, self.norms
+        ):
+
+            h_local = mpnn(
+                x,
+                edge_index=edge_index,
+                edge_attr=edge_attr,
+                batch=batch,
+                dist_mask=dist_mask,
+            )
             h_local = F.dropout(h_local, p=self.dropout, training=self.training)
             h_local = h_local + x
 
             if self.post_seq_model is not None:
-                serialized_h, mask = self.serialization.serialize(x, edge_index, batch, edge_attr)
+                serialized_h, mask = self.serialization.serialize(
+                    x, edge_index, batch, edge_attr
+                )
                 h_global = post_seq_models(serialized_h)[mask]
                 h_global = F.dropout(h_global, p=self.dropout, training=self.training)
                 h_global = h_global + x
                 x = h_local + h_global
-            else: 
+            else:
                 x = h_local
-            
-            x = mlp(x)
 
-            x = norm(x)
+            out = mlp(x)
 
-        x = global_add_pool(x, batch)
+            out = norm(x)
+
+            out = out + x
+
+        x = global_add_pool(out, batch)
         return self.final_mlp(x)

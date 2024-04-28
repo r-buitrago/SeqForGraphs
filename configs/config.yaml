@@ -24,7 +24,7 @@ DATA_DIR: /home/${oc.env:USER}/data/${project_name}
 wandb:
   tags: []
   project: ${project_name}
-  group: 'pept-base'
+  group: 'pept-base3'
   name: '${model.name}_${dataset.name}_${now:%Y-%m-%d_%H-%M-%S}'
 
 workdir: 

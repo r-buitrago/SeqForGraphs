@@ -25,7 +25,7 @@ def get_dataset(args, batch_size):
     train_data = instantiate(args.dataset.params_train)
     test_data = instantiate(args.dataset.params_test)
     train_loader = DataLoader(
-        train_data, batch_size=batch_size, num_workers=args.num_workers, shuffle=True
+        train_data, batch_size=batch_size, num_workers=args.num_workers, shuffle=False
     )
     test_loader = DataLoader(
         test_data, batch_size=batch_size, num_workers=args.num_workers, shuffle=False

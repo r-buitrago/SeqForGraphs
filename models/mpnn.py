@@ -66,15 +66,15 @@ class GREDMamba(torch.nn.Module):
         x, mask = self.local_serialization.serialize(x, edge_index, batch, edge_attr, compressed_dist_mask = dist_mask)
         B, N, K, H = x.shape
 
-        # Shape of x: (K+1, batch_size, num_nodes, dim_h)
+        # Shape of x: (batch_size, num_nodes, K+1, dim_h)
         x = self.mlp(x)
 
         x = x.reshape(B * N, K, H) # Shape of x: (batch_size * num_nodes, K+1, dim_h)
 
-        x = self.self_attn(x)[..., -1, :] # (batch_size * num_nodes, dim_h)
+        out = self.self_attn(x)[..., -1, :] # (batch_size * num_nodes, dim_h)
         
-        x = rearrange(x, '(B N) H -> B N H', B=B, N=N, H=H)[mask.bool()]# Shape of x: (batch_size, num_nodes,dim_h)
+        out = rearrange(out, '(B N) H -> B N H', B=B, N=N, H=H)[mask.bool()]# Shape of x: (batch_size, num_nodes,dim_h)
 
-        return x
+        return out
 
 

@@ -44,10 +44,11 @@ class CustomLRGBDataset(Dataset):
         split="train",
         transform=None,
         n_samples_max=100,
+        use_distance_masks=False,
     ):
         super().__init__()
         self.tg_dataset = LRGBDataset(path, name=name, split=split, transform=transform)
-        if precomputed_masks_path is not None:
+        if use_distance_masks and precomputed_masks_path is not None:
             with open(precomputed_masks_path, "rb") as f:
                 self.precomputed_masks = torch.load(
                     f
@@ -87,6 +88,7 @@ def get_lrgb_dataset(
     n_samples_max,
     split="train",
     precomputed_masks_path=None,
+    use_distance_masks=False,
 ):
     transform = T.AddRandomWalkPE(walk_length=20, attr_name="pe")
     return CustomLRGBDataset(
@@ -96,4 +98,5 @@ def get_lrgb_dataset(
         transform=transform,
         precomputed_masks_path=precomputed_masks_path,
         n_samples_max=n_samples_max,
+        use_distance_masks=use_distance_masks,
     )
