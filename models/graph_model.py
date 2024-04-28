@@ -69,6 +69,7 @@ class GraphModel(torch.nn.Module):
         super().__init__()
 
         self.node_emb = Linear(feature_dim, d_model)
+        self.edge_emb = Linear(edge_dim, d_model)
 
         # if embed_type == "embedding":
 
@@ -79,8 +80,7 @@ class GraphModel(torch.nn.Module):
 
         # elif embed_type == "linear":
 
-            
-        #     self.edge_emb = Linear(edge_dim, d_model)
+        #     
 
         # else:
         #     raise ValueError(f"This embedding type {embed_type} is not valid")
@@ -195,8 +195,6 @@ class GraphModel(torch.nn.Module):
             out = mlp(x)
 
             out = norm(x)
-
-            out = out + x
 
         x = global_add_pool(out, batch)
         return self.final_mlp(x)
