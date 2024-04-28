@@ -167,7 +167,7 @@ class GRED(LocalSerialization):
 
         else:
             dist_mask = sparse_to_dense(compressed_dist_mask, n_nodes, self.K + 1)
-        
+
         out = torch.swapaxes(dist_mask, 0, 1) @ inputs  # (K, B, N, H)
         out = rearrange(out, "k b n h -> b n k h")
         return out, mask
