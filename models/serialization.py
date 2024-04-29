@@ -92,14 +92,14 @@ class LocalSerialization:
 
 
 def sparse_to_dense(compressed_dist_mask, n_nodes, K):
-    # compressed_dist_mask (M, 4) == (grad_idx, node1, node2, dist)
+    # compressed_dist_mask (M, 4) == (grad_idx, dist, node1, node2)
 
     # contiguous compressed_dist_mask
     compressed_dist_mask = compressed_dist_mask.contiguous()
 
-    compressed_dist_mask = compressed_dist_mask[compressed_dist_mask[:, 1] < n_nodes]
     compressed_dist_mask = compressed_dist_mask[compressed_dist_mask[:, 2] < n_nodes]
-    compressed_dist_mask = compressed_dist_mask[compressed_dist_mask[:, 3] < K]
+    compressed_dist_mask = compressed_dist_mask[compressed_dist_mask[:, 3] < n_nodes]
+    compressed_dist_mask = compressed_dist_mask[compressed_dist_mask[:, 1] < K]
 
     unique_graph_ids, graph_ids = torch.unique(
         compressed_dist_mask[:, 0], return_inverse=True, sorted=False
@@ -114,9 +114,9 @@ def sparse_to_dense(compressed_dist_mask, n_nodes, K):
     #     sorted_unique_graph_ids, compressed_dist_mask[:, 0]
     # )
 
-    node1s = compressed_dist_mask[:, 1]
-    node2s = compressed_dist_mask[:, 2]
-    distances = compressed_dist_mask[:, 3]
+    node1s = compressed_dist_mask[:, 2]
+    node2s = compressed_dist_mask[:, 3]
+    distances = compressed_dist_mask[:, 1]
 
     dist_mask[graph_ids, distances, node1s, node2s] = 1
 

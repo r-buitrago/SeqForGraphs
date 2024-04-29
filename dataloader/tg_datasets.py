@@ -53,18 +53,28 @@ class CustomLRGBDataset(Dataset):
                 self.precomputed_masks = torch.load(
                     f
                 )  # (M, 4) == (graph_idx, node1, node2, dist)
-                assert len(torch.unique(self.precomputed_masks[:, 0])) == n_samples_max
+                # assert len(torch.unique(self.precomputed_masks[:, 0])) == n_samples_max
+
+                # get start and end indices for each graph
+                _, self.graph_counts = torch.unique(
+                    self.precomputed_masks[:, 0],  return_counts=True
+                )
+                self.cum_counts = torch.cumsum(self.graph_counts, 0)
+                self.cum_counts = torch.cat([torch.tensor([0]), self.cum_counts])
         else:
             self.precomputed_masks = None
 
         self.n_samples_max = n_samples_max
+
+
 
     def __getitem__(self, idx):
         if idx >= self.n_samples_max:
             raise IndexError
         g = self.tg_dataset[idx]
         if self.precomputed_masks is not None:
-            g.dist_mask = self.precomputed_masks[self.precomputed_masks[:, 0] == idx]
+            g.dist_mask = self.precomputed_masks[self.cum_counts[idx] : self.cum_counts[idx + 1]]
+            # assert torch.all(g.dist_mask[:, 0] == idx)
         return g
 
     def __len__(self):

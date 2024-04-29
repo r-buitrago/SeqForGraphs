@@ -10,7 +10,7 @@ params:
   classes: 0
   embed_type: embedding
  
-  d_model: 32
+  d_model: 128
   pe_dim: 8
   num_layers: 4
   d_conv: 4
@@ -18,7 +18,7 @@ params:
   dropout: 0.0
   act_kwargs: null
   act: relu
-  K: 10
+  K: 1
 
 use_distance_masks: True
 
@@ -29,7 +29,7 @@ optimizer:
 
 warmup_epochs: 1
 
-batch_size: 128
+batch_size: 256
 
 scheduler: cosine
 # scheduler: step
