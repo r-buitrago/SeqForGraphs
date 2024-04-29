@@ -55,7 +55,7 @@ def learning_step(
     batch,
     loss_type,
     is_training=True,
-    evaluator=DummyEvaluator,
+    evaluator=None,
     batch_start=0,
     calculate_embedding_diff=False,
     calculate_embedding=False
@@ -78,7 +78,9 @@ def learning_step(
         batch.x, batch.pe, batch.edge_index, batch.edge_attr, batch.batch, batch.get("dist_mask", None), calculate_embedding_diff, calculate_embedding
     )
     loss = loss_fn(out.squeeze(), batch.y.float())
-    evaluator.evaluate(out.squeeze(), batch.y.float())
+    
+    if evaluator is not None:
+        evaluator.evaluate(out.squeeze(), batch.y.float())
     return loss, embedding_diff, embeddings
 
 
@@ -192,7 +194,7 @@ def oversquashing_statistics(
     optimizer,
     loss_type,
     scheduler=None,
-    evaluator=DummyEvaluator,
+    evaluator=None,
 ):
     model.train()
     t1 = default_timer()
@@ -222,9 +224,9 @@ def oversquashing_statistics(
                 batch_embedding[-1][node, f].backward(retain_graph=True)
 
                 for hidden_layer in range(layers_):
-                    if sensitivity_matrix[hidden_layer].grad != None:
-                        sensitivity_matrix[hidden_layer] += torch.norm(embeddings[hidden_layer].grad, p=1).cpu().numpy()
-                        sensitivity_matrix[hidden_layer].grad = None
+                    if batch_embedding[hidden_layer].grad != None:
+                        sensitivity_matrix[hidden_layer] += torch.norm(batch_embedding[hidden_layer].grad, p=1).cpu().numpy()
+                        batch_embedding[hidden_layer].grad = None
 
         sensitivity_matrix_all += sensitivity_matrix
         batches += 1
