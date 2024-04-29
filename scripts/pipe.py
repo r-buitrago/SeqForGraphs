@@ -34,7 +34,14 @@ def check_for_done(l):
 
 parser = argparse.ArgumentParser(description="Training arguments")
 # Optimizer
+
+
 # python3 scripts/pipe.py --num_runs 1 --gpu_ids ??? 
+
+# python3 scripts/pipe.py --num_runs 1 --gpu_ids 0 --wandb --print --logrun --num_epochs 500 --group_name
+
+
+
 parser.add_argument("--num_runs", default=1, type=int, help="Number of runs to run")
 parser.add_argument(
     "--gpu_ids",
@@ -70,24 +77,25 @@ counter = 0
 NUM_EPOCHS = 200
 GROUP_NAME = "final2"
 sweep = dict(
+    
     d_model=("model.params.d_model", [32,64]),
     # n_layers=("model.params.num_layers", [4]),
     K=("model.params.K", [4]),
-    lr=("model.optimizer.lr", [0.001, 0.002]),
-    
+    lr=("model.optimizer.lr", [0.001, 0.002]),  
     model=("model", ["GREDMamba","gine"]),
+    # n_layers=("model.params.num_layers", [10]), #, 4, 2
+    # model=("model", ["gine"]), # , "gine-mamba", "GREDMamba","GREDMamba-mamba"
+
     dataset=("dataset", ["zinc"]),
     # dataset=("dataset", ["zinc","peptides-struct"]),
     # evaluate_frequency=('evaluate_frequency', [5]),
     batch_size=("model.batch_size", [256]),
     warmup_epochs=("model.warmup_epochs", [1]),
-    # seed=("seed", [33, 36]),
-    
-    
-    d_state=("model.params.d_state", [16]),
-    
 
+    # seed=("seed", [33, 36]),  
+    d_state=("model.params.d_state", [16]),
     scheduler=('model.scheduler', ['cosine']),
+
 )
 
 
