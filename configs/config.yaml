@@ -7,15 +7,15 @@ defaults:
   
 seed: 0
 
-num_epochs: 50
-log_frequency: 1
-evaluate_frequency: 5
+num_epochs: 100
+log_frequency: 10
+evaluate_frequency: 1
 oversmoothing_frequency: 2
 oversquashing_frequency: 2
 
 
 print: True
-use_wandb: True
+use_wandb: False
 log_model: True
 
 num_workers: 4
@@ -28,7 +28,7 @@ DATA_DIR: /home/${oc.env:USER}/data/${project_name}
 wandb:
   tags: []
   project: ${project_name}
-  group: 'pept-base6'
+  group: 'final'
   name: '${model.name}_${dataset.name}_${now:%Y-%m-%d_%H-%M-%S}'
 
 workdir: 

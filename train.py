@@ -15,6 +15,8 @@ import logging
 from utils.evaluator import DummyEvaluator, eval_to_print, eval_to_wandb
 from utils.utils import count_params
 from utils.scheduler import WarmupScheduler
+import torch.nn as nn
+import torch.nn.functional as F
 
 from torch_geometric.loader import DataLoader
 
@@ -33,6 +35,18 @@ def get_dataset(args, batch_size):
         test_data, batch_size=batch_size, num_workers=args.num_workers, shuffle=False
     )
     return train_loader, test_loader
+
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=1, gamma=3):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+
+    def forward(self, inputs, targets):
+        BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction='none')
+        pt = torch.exp(-BCE_loss)  # prevents nans when probability 0
+        F_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
+        return F_loss.mean()
 
 
 def learning_step(
@@ -62,18 +76,26 @@ def learning_step(
     out, embedding_diff, embeddings = model(
         batch.x, batch.pe, batch.edge_index, batch.edge_attr, batch.batch, dist_mask, calculate_embedding_diff, calculate_embedding
     )
+<<<<<<< HEAD
     loss = loss_fn(out.squeeze(), batch.y)
     evaluator.evaluate(out.squeeze(), batch.y)
     return loss, embedding_diff, embeddings
+=======
+    loss = loss_fn(out.squeeze(), batch.y.float())
+    evaluator.evaluate(out.squeeze(), batch.y.float())
+    return loss
+>>>>>>> 55a73c2 ([pept-func+zinc+final architecture changes])
 
 
 def get_loss_value(loss_type):
     if loss_type == "mse":
-        return torch.nn.MSELoss()
+        return torch.nn.MSELoss(reduction="sum")
     elif loss_type == "bce":
         return torch.nn.BCEWithLogitsLoss()
     elif loss_type == "ce":
         return torch.nn.CrossEntropyLoss()
+    elif loss_type == "focal":
+        return FocalLoss()
     else:
         raise ValueError(f"Loss type {loss_type} not supported")
 
@@ -400,4 +422,5 @@ def _main(args: DictConfig):
 
 
 if __name__ == "__main__":
+
     main()

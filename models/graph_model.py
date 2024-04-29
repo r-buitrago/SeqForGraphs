@@ -12,6 +12,7 @@ from torch.nn import (
     Sequential,
     LayerNorm,
 )
+import torch.nn as nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 import torch_geometric.transforms as T
@@ -43,6 +44,19 @@ from models.mpnn import GREDMamba, CustomGINEConv
 from utils.utils import time_it
 
 
+# class MultiDimensionEmbedding(nn.Module):
+#     def __init__(self, num_dims, max_value, embedding_dim):
+#         super(MultiDimensionEmbedding, self).__init__()
+#         self.embeddings = nn.ModuleList([nn.Embedding(max_value+1, embedding_dim) for _ in range(num_dims)])
+#         self.num_dims = num_dims
+#         self.max_value = max_value
+#         self.embedding_dim = embedding_dim
+        
+#     def forward(self, x):
+#         # x is expected to be of shape (num_dims, seq_length)
+#         embedded = [self.embeddings[i](x[:,i]) for i in range(self.num_dims)]
+#         return torch.stack(embedded)
+
 class GraphModel(torch.nn.Module):
     def __init__(
         self,
@@ -62,31 +76,27 @@ class GraphModel(torch.nn.Module):
         act_kwargs: Optional[Dict[str, Any]] = None,
         act: str = "relu",
         K: int = 5,
+        node_classes: int = 16,
+        edge_classes: int = 3,
+        pe_dim_in: int = 20,
         # mpnn_kwargs: Optional[Dict[str, Any]] = None,
         # post_seq_model_kwargs: Optional[Dict[str, Any]] = None,
         # serialization_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
 
-        self.node_emb = Linear(feature_dim, d_model)
-        self.edge_emb = Linear(edge_dim, d_model)
+        self.embed_type = embed_type
+        if embed_type == "embedding":
+            self.node_emb = Embedding(node_classes, d_model - pe_dim)
+            self.edge_emb = Embedding(edge_classes, d_model)
+        elif embed_type == "linear":
+            self.node_emb = Linear(feature_dim, d_model - pe_dim)
+            self.edge_emb = Linear(edge_dim, d_model)
+        else:
+            raise ValueError(f"This embedding type {embed_type} is not valid")
 
-        # if embed_type == "embedding":
-
-        #     self.node_emb = Embedding(
-        #         28, d_model - pe_dim
-        #     )  # (# max_nodes, #embedding_dim)
-        #     self.edge_emb = Embedding(4, d_model)
-
-        # elif embed_type == "linear":
-
-        #     
-
-        # else:
-        #     raise ValueError(f"This embedding type {embed_type} is not valid")
-
-        # # self.pe_lin = Linear(20, pe_dim)
-        # # self.pe_norm = BatchNorm1d(20)
+        self.pe_lin = Linear(pe_dim_in, pe_dim)
+        self.pe_norm = BatchNorm1d(20)
 
         self.mpnn_type = mpnn_type
         self.post_seq_model = post_seq_model
@@ -94,12 +104,12 @@ class GraphModel(torch.nn.Module):
         self.dropout = dropout
 
         if mpnn_type == "gine":
-            nn = lambda: Sequential(
+            nnet = lambda: Sequential(
                 Linear(d_model, d_model),
                 ReLU(),
                 Linear(d_model, d_model),
             )
-            mpnn_gen = lambda: CustomGINEConv(nn())
+            mpnn_gen = lambda: CustomGINEConv(nnet())
         elif mpnn_type == "GREDMamba":
             mpnn_gen = lambda: GREDMamba(
                 d_model=d_model, d_state=d_state, d_conv=d_conv, expand=1, K=K
@@ -148,6 +158,7 @@ class GraphModel(torch.nn.Module):
             Linear(d_model, classes),
         )
 
+<<<<<<< HEAD
     def forward(self, x, pe, edge_index, edge_attr, batch, dist_mask=None, calculate_embeddings_diff=False, calculate_embeddings=False):
         # x_pe = self.pe_norm(pe)
         # x = torch.cat(
@@ -178,22 +189,53 @@ class GraphModel(torch.nn.Module):
 
             layers += 1
                 
+=======
+    def forward(self, x, pe, edge_index, edge_attr, batch, dist_mask=None):
+        x_pe = self.pe_norm(pe)
+
+        if self.embed_type == "embedding":
+            x = torch.cat(
+                (self.node_emb(x.squeeze(-1)), self.pe_lin(x_pe)), 1
+            )
+            edge_attr = self.edge_emb(edge_attr)
+        elif self.embed_type == "linear":
+            x = torch.cat(
+                (self.node_emb(x.float()), self.pe_lin(x_pe)), 1
+            )
+            edge_attr = self.edge_emb(edge_attr.float())
+        else:
+            raise ValueError(f"This embedding type {self.embed_type} is not valid")
+
+        for mpnn, post_seq_models, mlp, norm in zip(
+            self.mpnns, self.post_seq_models, self.mlps, self.norms
+        ):
+            z = norm(x)
+            h_local = mpnn(
+                z,
+                edge_index=edge_index,
+                edge_attr=edge_attr,
+                batch=batch,
+                dist_mask=dist_mask,
+            )
+>>>>>>> 55a73c2 ([pept-func+zinc+final architecture changes])
             h_local = F.dropout(h_local, p=self.dropout, training=self.training)
-            h_local = h_local + x
+            # x = h_local + x
+
 
             if self.post_seq_model is not None:
                 serialized_h, mask = self.serialization.serialize(
-                    x, edge_index, batch, edge_attr
+                    z, edge_index, batch, edge_attr
                 )
                 h_global = post_seq_models(serialized_h)[mask]
                 h_global = F.dropout(h_global, p=self.dropout, training=self.training)
                 h_global = h_global + x
-                x = h_local + h_global
+                z = h_local + h_global
             else:
-                x = h_local
+                z = h_local
 
-            out = mlp(x)
+            x = mlp(z) + z
 
+<<<<<<< HEAD
 
             out = norm(x)
 
@@ -204,3 +246,7 @@ class GraphModel(torch.nn.Module):
         #     layer_embeddings = torch.stack(layer_embeddings)
         # if len(layer_embeddings_diff) > 0:
         #     layer_embeddings_diff = torch.stack(layer_embeddings_diff)
+=======
+        x = global_add_pool(x, batch)
+        return self.final_mlp(x)
+>>>>>>> 55a73c2 ([pept-func+zinc+final architecture changes])

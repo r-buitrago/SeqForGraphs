@@ -1,0 +1,6 @@
+train:
+  _target_: utils.evaluator.LossMultiAccEvaluator
+
+test: 
+  _target_: utils.evaluator.LossMultiAccEvaluator
+  topk: 3

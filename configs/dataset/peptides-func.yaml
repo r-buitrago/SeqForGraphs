@@ -1,9 +1,9 @@
-name: peptides-struct
+name: peptides-func
 
 params_train: 
   _target_: dataloader.tg_datasets.get_lrgb_dataset
   path: ${DATA_DIR}/datasets/lrgb
-  subset: Peptides-struct
+  subset: Peptides-func
   use_distance_masks: ${model.use_distance_masks}
   precomputed_masks_path: ./data/precomputed_dist_masks/pept/split=train_n=${.n_samples_max}_k=25.pt
   split: train
@@ -12,7 +12,7 @@ params_train:
 params_test: 
   _target_: dataloader.tg_datasets.get_lrgb_dataset
   path: ${DATA_DIR}/datasets/lrgb
-  subset: Peptides-struct
+  subset: Peptides-func
   use_distance_masks: ${model.use_distance_masks}
   precomputed_masks_path: ./data/precomputed_dist_masks/pept/split=val_n=${.n_samples_max}_k=25.pt
   split: val
@@ -25,5 +25,5 @@ edge_dim: 3
 node_classes: 16
 edge_classes: 3
 
-classes: 11 # quantities to regress in this case
+classes: 10
 embed_type: linear

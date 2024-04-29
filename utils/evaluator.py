@@ -1,6 +1,10 @@
 from abc import ABC, abstractmethod
 import torch.nn as nn
 from typing import Dict
+import torch
+from sklearn.metrics import average_precision_score
+import numpy as np
+from collections import defaultdict
 
 
 def eval_to_wandb(eval_dict: Dict[str, Dict[str, float]], is_train: bool):
@@ -79,8 +83,87 @@ class DummyEvaluator(Evaluator):
 
 class LossEvaluator(Evaluator):
     def _init(self, **kwargs):
-        self.eval_dict = {"Loss/loss": 0.0}
+        self.eval_dict = defaultdict(float)
 
     def _evaluate(self, y_pred, y_true):
         loss = self.loss_fn(y_pred, y_true)
         self.eval_dict["Loss/loss"] += loss.item()
+        self.eval_dict["Loss/mae"] += torch.sum(torch.abs(y_pred - y_true)).item()
+
+class LossMultiAccEvaluator(Evaluator):
+    def _init(self, **kwargs):
+        self.eval_dict = defaultdict(float)
+        self.y_true_np = []
+        self.y_pred_np = []
+
+    def _evaluate(self, y_pred, y_true):
+        # y_pred: (B, num_classes)
+        # y_true: (B, num_classes)
+        B, C = y_pred.shape
+
+        # Compute loss
+        loss = self.loss_fn(y_pred, y_true)
+        self.eval_dict["Loss/loss"] += loss.item()
+
+        # compute accuracy
+        # acc = torch.sum(torch.argmax(y_pred, dim=1) == y_true).item()
+        # self.eval_dict["Acc/acc"] += acc
+
+
+
+        
+
+
+        # Compute AP for each class
+        # aps = []
+        # for i in range(y_true_np.shape[1]):  # Loop over each class
+        #     # Calculate AP using true labels and predicted probabilities for the class
+        #     ap = average_precision_score(y_true_np[:, i], y_pred_np[:, i])
+        #     aps.append(ap)
+    
+        # self.eval_dict["Acc/ap"] += np.mean(aps) * B
+
+        # compute accuracy
+        _, indices = torch.max(y_pred, dim=1)
+        selected_y_true = torch.gather(y_true, 1, indices.unsqueeze(1)).squeeze(1)
+        count = torch.sum(selected_y_true == 1)
+
+        self.eval_dict["Acc/acc"] += count.item()
+
+        # # # compute AP
+        # y_pred = torch.sigmoid(y_pred)
+        # y_pred = y_pred.detach().cpu().numpy()
+        # y_true = y_true.detach().cpu().numpy()
+        # AP = average_precision_score(y_true, y_pred, average="macro")
+        # # we will divide by B at the end
+        # self.eval_dict["Acc/ap"] += AP * B
+
+        y_true_np = y_true.detach().cpu().numpy()
+        y_pred_np = torch.sigmoid(y_pred).detach().cpu().numpy()  # Convert logits to probabilities
+        self.y_true_np.append(y_true_np)
+        self.y_pred_np.append(y_pred_np)
+    
+    def reset(self):
+        super().reset()
+        self.y_true_np = []
+        self.y_pred_np = []
+    
+    def get_evaluation(self, reset=True) -> Dict[str, Dict[str, float]]:
+        if self.n == 0:
+            return {}
+        avg_dict = {}
+        for key, value in self.eval_dict.items():
+            avg_dict[key] = value / self.n
+        
+        # Compute AP
+        y_true_np = np.concatenate(self.y_true_np, axis=0)
+        y_pred_np = np.concatenate(self.y_pred_np, axis=0)
+        AP = average_precision_score(y_true_np, y_pred_np, average="macro")
+        avg_dict["Acc/ap"] = AP
+
+        if reset:
+            self.reset()
+        return avg_dict
+
+
+

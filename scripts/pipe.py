@@ -34,20 +34,20 @@ def check_for_done(l):
 
 parser = argparse.ArgumentParser(description="Training arguments")
 # Optimizer
-# python3 scripts/pipe.py --num_runs 1 --gpu_ids ??? --wandb --print --logrun --num_epochs 500 --group_name
+# python3 scripts/pipe.py --num_runs 1 --gpu_ids ??? 
 parser.add_argument("--num_runs", default=1, type=int, help="Number of runs to run")
 parser.add_argument(
     "--gpu_ids",
     help="delimited list input",
     type=lambda s: [int(item) for item in s.split(",")],
 )
-parser.add_argument("--wandb", action="store_true", help="To use wandb logging or not")
-parser.add_argument("--logrun", action="store_true", help="save the model orn ot")
-parser.add_argument("--print", action="store_true", help="to print the outputs or not")
-parser.add_argument(
-    "--num_epochs", default=500, type=int, help="Number of epochs to learn"
-)
-parser.add_argument("--group_name", default=None, type=str, help="Group Name")
+parser.add_argument("--wandb", action="store_true", help="To use wandb logging or not", default=True)
+parser.add_argument("--logrun", action="store_true", help="save the model orn ot", default=True)
+parser.add_argument("--print", action="store_true", help="to print the outputs or not", default=True)
+# parser.add_argument(
+#     "--num_epochs", default=500, type=int, help="Number of epochs to learn"
+# )
+# parser.add_argument("--group_name", default=None, type=str, help="Group Name")
 
 args = parser.parse_args()
 
@@ -63,35 +63,42 @@ NUM_GPUS = len(GPU_IDS)
 USE_WANDB = args.wandb
 LOG_RUN = args.logrun
 PRINT = args.print
-NUM_EPOCHS = args.num_epochs
+
 counter = 0
 
 
+NUM_EPOCHS = 200
+GROUP_NAME = "final2"
 sweep = dict(
-    lr=("model.optimizer.lr", [0.001]),
-    n_layers=("model.params.num_layers", [6, 4, 2]),
-    model=("model", ["gine","gine-mamba","GREDMamba","GREDMamba-mamba"]),
+    d_model=("model.params.d_model", [32,64]),
+    # n_layers=("model.params.num_layers", [4]),
+    K=("model.params.K", [4]),
+    lr=("model.optimizer.lr", [0.001, 0.002]),
+    
+    model=("model", ["GREDMamba","gine"]),
     dataset=("dataset", ["zinc"]),
+    # dataset=("dataset", ["zinc","peptides-struct"]),
     # evaluate_frequency=('evaluate_frequency', [5]),
     batch_size=("model.batch_size", [256]),
     warmup_epochs=("model.warmup_epochs", [1]),
-    seed=("seed", [33, 36]),
+    # seed=("seed", [33, 36]),
     
-    # d_model=("model.params.d_model", [64]),
-    # scheduler=('model.scheduler', ['cosine']),
-    # step_size=('model.step_size',[150]),
+    
+    d_state=("model.params.d_state", [16]),
+    
+
+    scheduler=('model.scheduler', ['cosine']),
 )
 
 
 sweep_product = list(outer_product(sweep))
 length = len(sweep_product)
 print(f"Number of runs that will be executed: {length}")
-print(sweep_product)
+# print(sweep_product)
 
-if args.group_name is not None:
-    wandb_group = args.group_name
-else:
-    wandb_group = f"dec27_channel_increase"
+
+wandb_group = GROUP_NAME
+
 wandb_tags_original = []
 
 
@@ -128,6 +135,7 @@ for run in sweep_product:
 
     with initialize(version_base=None, config_path="../configs"):
         # print(overrides)
+        time.sleep(1)
         cfg = compose(config_name="config", overrides=overrides)
         # resolve
         OmegaConf.resolve(cfg)

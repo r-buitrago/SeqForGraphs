@@ -25,7 +25,7 @@ from utils.utils import time_it
 
 class CustomGINEConv(GINEConv):
     def forward(self, x, edge_index, edge_attr=None, batch = None, dist_mask = None):
-        return super().forward(x, edge_index, edge_attr)
+        return super().forward(x, edge_index, edge_attr) + x
 
 class MLP(nn.Module):
     def __init__(self, dim_h, drop_rate=0.):
@@ -49,7 +49,7 @@ class MLP(nn.Module):
     
 
 class GREDMamba(torch.nn.Module):
-    def __init__(self, d_model, K = 5, d_state=16, d_conv=4, expand=1):
+    def __init__(self, d_model, K = 5, d_state=16, d_conv=16, expand=2):
         super().__init__()
 
         self.mlp = MLP(d_model)
@@ -62,16 +62,20 @@ class GREDMamba(torch.nn.Module):
         self.K = K
         self.local_serialization = GRED(K)
 
+        self.norm = nn.LayerNorm(d_model)
+
     def forward(self, x, batch, edge_index = None, edge_attr = None, dist_mask = None):
         x, mask = self.local_serialization.serialize(x, edge_index, batch, edge_attr, compressed_dist_mask = dist_mask)
         B, N, K, H = x.shape
 
         # Shape of x: (batch_size, num_nodes, K+1, dim_h)
-        x = self.mlp(x)
+        x = self.mlp(x) + x
 
         x = x.reshape(B * N, K, H) # Shape of x: (batch_size * num_nodes, K+1, dim_h)
 
-        out = self.self_attn(x)[..., -1, :] # (batch_size * num_nodes, dim_h)
+        x = self.norm(x)
+
+        out = self.self_attn(x)[..., -1, :] + x[..., -1, :] # (batch_size * num_nodes, dim_h)
         
         out = rearrange(out, '(B N) H -> B N H', B=B, N=N, H=H)[mask.bool()]# Shape of x: (batch_size, num_nodes,dim_h)
 
