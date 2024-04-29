@@ -28,6 +28,7 @@ optimizer:
   _target_: torch.optim.Adam
   lr: 0.001
   weight_decay: 0.1
+min_lr: 0.0
 
 warmup_epochs: 1
 

@@ -144,10 +144,6 @@ def main(args: DictConfig):
 
 
 def _main(args: DictConfig):
-    OmegaConf.update(args.model.params, "feature_dim", args.dataset.feature_dim)
-    OmegaConf.update(args.model.params, "edge_dim", args.dataset.edge_dim)
-    OmegaConf.update(args.model.params, "classes", args.dataset.classes)
-    OmegaConf.update(args.model.params, "embed_type", args.dataset.embed_type)
 
     if not args.print:
         log.setLevel(logging.WARNING)
@@ -203,7 +199,7 @@ def _main(args: DictConfig):
     # iterations = args.num_epochs
     if args.model.scheduler == "cosine":
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=iterations
+            optimizer, T_max=iterations, eta_min=args.model.get("min_lr", 0.0)
         )
     elif args.model.scheduler == "step":
         scheduler = torch.optim.lr_scheduler.StepLR(
@@ -230,6 +226,8 @@ def _main(args: DictConfig):
         args.evaluator.train, loss_fn=get_loss_value(loss_type)
     )
     test_evaluator = instantiate(args.evaluator.test, loss_fn=get_loss_value(loss_type))
+
+    best_loss = 100.00
 
     for epoch in range(args.num_epochs):
         model, train_time = train(
@@ -272,12 +270,20 @@ def _main(args: DictConfig):
         )
 
         if args.log_model:
-            if epoch % args.log_frequency:
+            current_loss = test_evaluation["Loss/mae"]
+            if current_loss < best_loss:
+                best_loss = current_loss
                 checkpoint_path = os.path.join(model_folder_path, "ckpt.pt")
                 torch.save(model.state_dict(), checkpoint_path)
                 cfg_path = os.path.join(model_folder_path, "cfg.yaml")
                 with open(cfg_path, "w") as f:
                     f.write(OmegaConf.to_yaml(args))
+                # write best loss
+                with open(os.path.join(model_folder_path, "best_loss.txt"), "w") as f:
+                    f.write(str(best_loss))
+        
+        if args.use_wandb:
+            run.summary["Loss/best_test_mae"] = best_loss
 
 
 if __name__ == "__main__":

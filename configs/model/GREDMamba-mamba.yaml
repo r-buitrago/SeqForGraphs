@@ -5,30 +5,40 @@ params:
   mpnn_type: GREDMamba
   post_seq_model: mamba
   global_serialization_type: node_order
-  feature_dim: 0
-  edge_dim: 0
-  classes: 0
-  embed_type: embedding
-  d_model: 8
+  feature_dim: ${dataset.feature_dim}
+  edge_dim: ${dataset.edge_dim}
+  node_classes: ${dataset.node_classes}
+  edge_classes: ${dataset.edge_classes}
+  classes: ${dataset.classes}
+  embed_type: ${dataset.embed_type}
+ 
+  d_model: 72
   pe_dim: 8
   num_layers: 4
-  d_conv: 4
-  d_state: 16 
-  dropout: 0.0
+  d_conv: 16
+  d_state: 32 
+  dropout: 0.2  
   act_kwargs: null
   act: relu
+  K: 4
+
+  pe_dim_in: 20
+
+use_distance_masks: True
 
 optimizer:
   _target_: torch.optim.Adam
   lr: 0.001
-  weight_decay: 0.0
+  weight_decay: 0.1
+min_lr: 0.0
+
 
 warmup_epochs: 1
 
 batch_size: 128
 
-# scheduler: cosine
-scheduler: step
+scheduler: cosine
+# scheduler: step
 step_size: 150
 gamma: 0.5
 

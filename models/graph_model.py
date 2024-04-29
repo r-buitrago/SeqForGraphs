@@ -195,7 +195,7 @@ class GraphModel(torch.nn.Module):
                 )
                 h_global = post_seq_models(serialized_h)[mask]
                 h_global = F.dropout(h_global, p=self.dropout, training=self.training)
-                h_global = h_global + x
+                h_global = h_global +  z
                 z = h_local + h_global
             else:
                 z = h_local

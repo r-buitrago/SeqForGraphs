@@ -9,7 +9,9 @@ import wandb
 from copy import deepcopy
 from hydra.utils import instantiate
 
-import torch.functional as F
+from torch_geometric.utils import to_dense_adj
+
+import torch.nn.functional as F
 
 
 
@@ -76,7 +78,7 @@ if __name__ == "__main__":
     log.info("Loading pretrained weights")
     model.load_state_dict(model_state)
 
-    
+    oversmoothing = torch.zeros(cfg.model.params.num_layers).to(device)
 
     for graph in test_loader:
         x = graph.x.to(device)
@@ -84,7 +86,10 @@ if __name__ == "__main__":
         edge_attr = graph.edge_attr.to(device)
         batch = graph.batch.to(device)
         pe = graph.pe.to(device)
-        dist_mask = graph.dist_mask.to(device)
+        if graph.get("dist_mask") is not None:
+            dist_mask = graph.dist_mask.to(device)
+        else: 
+            dist_mask = None
 
         model.eval()
 
@@ -104,9 +109,9 @@ if __name__ == "__main__":
         else:
             raise ValueError(f"This embedding type {model.embed_type} is not valid")
 
-        for mpnn, post_seq_models, mlp, norm in zip(
+        for l,(mpnn, post_seq_models, mlp, norm) in enumerate(zip(
             model.mpnns, model.post_seq_models, model.mlps, model.norms
-        ):
+        )):
             z = norm(x)
             h_local = mpnn(
                 z,
@@ -132,7 +137,27 @@ if __name__ == "__main__":
 
             x = mlp(z) + z
 
-    
+            # compute difference of norm of x with all its neighbours
+            # x: (M, H)
+            # compute count of nodes per graph
+            count_nodes = torch.bincount(batch)
+            for node1, node2 in edge_index.T:
+                x1 = x[node1]
+                x2 = x[node2]
+                diff = torch.norm(x1 - x2)**2
+                # divide by number of nodes of such graph
+
+                oversmoothing[l] += diff.item() / count_nodes[batch[node1]]
+        
+    oversmoothing = [o.detach().cpu().numpy() / len(test_loader) for o in oversmoothing]
+
+    # wandb log
+    for l, o in enumerate(oversmoothing):
+        wandb.log({f"oversmoothing/{l}": o})
+
+    print(oversmoothing)
+
+
 
     # wain until wandb uploads
     # time.sleep(10)
