@@ -49,7 +49,7 @@ def learning_step(
     batch.to(device)
     loss_fn = get_loss_value(loss_type)
 
-    precomputed_masks_path = args.dataset.params.precomputed_masks_path
+    precomputed_masks_path = args.dataset.params_train.precomputed_masks_path
     if precomputed_masks_path is not None:
         dist_mask = DIST_MASKS[
             batch_start : batch_start + batch.num_graphs
@@ -98,6 +98,8 @@ def train(
             loss_type=loss_type,
             evaluator=evaluator,
             batch_start=i,
+            calculate_embedding_diff=False,
+            calculate_embedding = False
         )
         optimizer.zero_grad()
         loss.backward()
@@ -124,6 +126,8 @@ def test(args, test_loader, model, loss_type, evaluator=DummyEvaluator):
             evaluator=evaluator,
             is_training=False,
             batch_start=i,
+            calculate_embedding_diff=False,
+            calculate_embedding = False
         )
         log.debug(f"Evaluation batch time: {default_timer() - batch_timer}")
         batch_timer = default_timer()
@@ -315,8 +319,8 @@ def _main(args: DictConfig):
         args.evaluator.train, loss_fn=get_loss_value(loss_type)
     )
     test_evaluator = instantiate(args.evaluator.test, loss_fn=get_loss_value(loss_type))
-    
-    precomputed_masks_path = args.dataset.params.precomputed_masks_path
+
+    precomputed_masks_path = args.dataset.params_train.precomputed_masks_path
     if precomputed_masks_path is not None:
         print("Loading precomputed masks")
         global DIST_MASKS 
