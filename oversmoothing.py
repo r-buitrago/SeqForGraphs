@@ -9,7 +9,7 @@ import wandb
 from copy import deepcopy
 from hydra.utils import instantiate
 
-import torch.functional as F
+import torch.nn.functional as F
 
 
 
@@ -27,12 +27,12 @@ if __name__ == "__main__":
     parser.add_argument('--model', type=str)
     parser.add_argument('--timestamp', type=str)
     parser.add_argument('--log_model_dir', type=str)
-    parser.add_argument('--wandb', action='store_true', help='To use wandb logging or not', default=True)
+    parser.add_argument('--wandb', action='store_true', help='To use wandb logging or not', default=False)
 
     args = parser.parse_args()
 
-    fdir = os.path.join(args.log_model_dir, args.model, args.group,  args.timestamp)
-
+    #fdir = os.path.join(args.log_model_dir, args.model, args.group,  args.timestamp)
+    fdir = "pretrained/gred_mamba_zinc/2024-04-29_13-02-34"
     cfg_path = os.path.join(fdir, "cfg.yaml")
     model_path = os.path.join(fdir, "ckpt.pt")
     model_state = torch.load(model_path)
@@ -130,6 +130,7 @@ if __name__ == "__main__":
             else:
                 z = h_local
 
+            breakpoint()
             x = mlp(z) + z
 
     
