@@ -5,30 +5,33 @@ params:
   mpnn_type: gine
   post_seq_model: null
   global_serialization_type: null
-  feature_dim: 0
-  edge_dim: 0
-  classes: 0
-  embed_type: embedding
+
   d_model: 128
   pe_dim: 8
   num_layers: 4
   d_conv: 4
   d_state: 16 
-  dropout: 0.0
+  dropout: 0.2
   act_kwargs: null
   act: relu
   K: 25
+  feature_dim: ${dataset.feature_dim}
+  edge_dim: ${dataset.edge_dim}
+  node_classes: ${dataset.node_classes}
+  edge_classes: ${dataset.edge_classes}
+  classes: ${dataset.classes}
+  embed_type: ${dataset.embed_type}
 
 use_distance_masks: False
 
 optimizer:
   _target_: torch.optim.Adam
-  lr: 0.0001
-  weight_decay: 0.0
+  lr: 0.001
+  weight_decay: 0.1
 
 warmup_epochs: 1
 
-batch_size: 256
+batch_size: 64
 
 scheduler: cosine
 # scheduler: step
