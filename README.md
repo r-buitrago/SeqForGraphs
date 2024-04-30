@@ -1,12 +1,13 @@
-#### About
+
+### About
 
 SeqForGraphs is an implementation of GRED-Mamba benchmarked on Zinc and Peptide datasets.
 
-#### Running Instructions
+### Running Instructions
 
 python3 train.py
 
-#### Hyperparameter Sweep Instructions
+### Hyperparameter Sweep Instructions
 
 python3 scripts/pipe.py --num_runs 1 --gpu_ids 0 --wandb --print --logrun --num_epochs 21 --group_name test
 
@@ -21,3 +22,4 @@ Specify hyperparameters in scripts/pipe.py:
 
 Specify default configuration parameters in configs/config.yaml
 
+> ***NOTE***: Training can be sped-up by running notebooks/precomputed_dist_masks.ipynb, which precomputes the k-hops distance for each node from the target node.
