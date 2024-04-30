@@ -1,1 +1,23 @@
-PGM Project!
+#### About
+
+SeqForGraphs is an implementation of GRED-Mamba benchmarked on Zinc and Peptide datasets.
+
+#### Running Instructions
+
+python3 scripts/pipe.py --num_runs 1 --gpu_ids 0 --wandb --print --logrun --num_epochs 21 --group_name test
+
+#### Hyperparameter Sweep Instructions
+
+Specify hyperparameters in scripts/pipe.py:
+
+`sweep = dict(
+    d_model=("model.params.d_model", [32,64]),
+    # n_layers=("model.params.num_layers", [4]),
+    K=("model.params.K", [4]),
+    lr=("model.optimizer.lr", [0.001, 0.002]),
+)`
+
+#### Default Configuration for Hyperparameter Sweep
+
+Specify default configuration parameters in configs/config.yaml
+
