@@ -57,6 +57,8 @@ def oversquashing_statistics(
     sensitivity_matrix_all = 0
     batches = 0
     for i, batch in enumerate(data_loader):
+        
+        batch.x.float().requires_grad = True
         loss, _, batch_embedding = learning_step(
             args,
             model,
@@ -67,27 +69,35 @@ def oversquashing_statistics(
             calculate_embedding=True
         )
         if optimizer:
-            optimizer.zero_grad()      
+            optimizer.zero_grad()     
+        if retrain and optimizer and  loss_type:
+            optimizer.step()
+            print("we optimized)")
+            #optimizer.zero_grad()
+            if scheduler is not None:
+                scheduler.step() 
         layers_, nodes_, dim_, = batch_embedding.shape
         sensitivity_matrix = torch.zeros(layers_)
         for node in random.sample(range(nodes_), 10):
-            for f in range(0, dim_):
-                batch_embedding[-1][node, f].backward(retain_graph=True)
-                batch_embedding.retain_grad()
-                for hidden_layer in range(layers_):
-                    breakpoint()
+
+            #for f in range(0, dim_):
+                # batch_embedding[-1][node, f].backward(retain_graph=True)
+                # batch_embedding.retain_grad()
+            for hidden_layer in range(layers_):
+                breakpoint()
+                grad_s = torch.autograd.grad(outputs = batch_embedding[-1][node], inputs = batch_embedding[hidden_layer], create_graph = True, retain_graph = True)
                     # batch_embedding[hidden_layer].retain_grad()
-                    if batch_embedding[hidden_layer].grad != None:
-                        sensitivity_matrix[hidden_layer] += torch.norm(batch_embedding[hidden_layer].grad, p=1).cpu().numpy()
-                        print(f"grad computed {batch_embedding[hidden_layer].grad}")
-                        batch_embedding[hidden_layer].grad = None
+                    # batch_embedding[hidden_layer].retain_grad()
+                if grad_s != None:
+                    breakpoint()
+                        
+
+                    sensitivity_matrix[hidden_layer] += torch.norm(grad_s, p=1).cpu().numpy()
+
+                    #batch_embedding[hidden_layer].grad = None
         sensitivity_matrix_all += sensitivity_matrix
         batches += 1
-        if retrain and optimizer and evaluator and loss_type:
-            optimizer.step()
-            #optimizer.zero_grad()
-            if scheduler is not None:
-                scheduler.step()
+
         log.debug(f"Training batch time: {default_timer() - batch_timer}")
         batch_timer = default_timer()
 
@@ -196,7 +206,8 @@ if __name__ == "__main__":
     model.load_state_dict(model_state)
 
     time_1, batch_embedding_diff = oversmoothing_statistics(args, test_loader, model, "mse")
-    time_2, sensitivity_matrix = oversquashing_statistics(args, test_loader, model, None, "mse", None, None, None)
+    optimizer =  instantiate(args.model.optimizer, params=model.parameters())
+    time_2, sensitivity_matrix = oversquashing_statistics(args, test_loader, model, optimizer, "mse", None, None, True)
 
 
 # def oversquashing_statistics(
