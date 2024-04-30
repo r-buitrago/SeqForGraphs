@@ -11,6 +11,8 @@ from hydra.utils import instantiate
 
 import torch.nn.functional as F
 
+import matplotlib.pyplot as plt
+
 
 import sys, os
 import numpy as np
@@ -76,25 +78,26 @@ def oversquashing_statistics(
             #optimizer.zero_grad()
             if scheduler is not None:
                 scheduler.step() 
-        layers_, nodes_, dim_, = batch_embedding.shape
-        sensitivity_matrix = torch.zeros(layers_)
-        for node in random.sample(range(nodes_), 10):
+        layers_, nodes_, dim_ = batch_embedding.shape
+        sensitivity_matrix = torch.zeros(layers_ - 1)  # Exclude the last layer
 
-            #for f in range(0, dim_):
-                # batch_embedding[-1][node, f].backward(retain_graph=True)
-                # batch_embedding.retain_grad()
-            for hidden_layer in range(layers_):
-                breakpoint()
-                grad_s = torch.autograd.grad(outputs = batch_embedding[-1][node], inputs = batch_embedding[hidden_layer], create_graph = True, retain_graph = True)
-                    # batch_embedding[hidden_layer].retain_grad()
-                    # batch_embedding[hidden_layer].retain_grad()
-                if grad_s != None:
-                    breakpoint()
-                        
+        # Iterate over random subset of nodes and all features
+        for node in random.sample(range(nodes_), 100):
+            for f in range(dim_):
+                # Calculate gradients of the last layer's embeddings with respect to all other layers
+                grad_outputs = torch.zeros_like(batch_embedding[-1])
+                grad_outputs[node, f] = 1  # Set the specific node and feature to 1 to compute derivative
 
-                    sensitivity_matrix[hidden_layer] += torch.norm(grad_s, p=1).cpu().numpy()
+                # Compute gradients for all layers except the last one
+                gradients = torch.autograd.grad(outputs=batch_embedding[-1], inputs=batch_embedding[:-1], grad_outputs=grad_outputs, retain_graph=True, allow_unused=True)
+                print(gradients)
+                
+                # Accumulate the norm of gradients for each layer
+                for hidden_layer, grad in enumerate(gradients):
+                    if grad is not None:
+                        sensitivity_matrix[hidden_layer] += grad.norm(p=1).cpu()
 
-                    #batch_embedding[hidden_layer].grad = None
+        # Add batch sensitivity to the overall sensitivity matrix
         sensitivity_matrix_all += sensitivity_matrix
         batches += 1
 
@@ -145,6 +148,22 @@ def oversmoothing_statistics(args, test_loader, model, loss_type, evaluator=None
 
 
 
+def compute_oversmoothing(model_path, cfg_path):
+    cfg = OmegaConf.load(cfg_path)
+    args = cfg
+    train_loader, test_loader = get_dataset(args, batch_size=args.model.batch_size)
+    _data = next(iter(test_loader))
+    print(f"Dataset shape: {_data}")
+
+    model = instantiate(args.model.params)
+    model.to(device)
+    model_state = torch.load(model_path)
+    log.info("Loading pretrained weights")
+    model.load_state_dict(model_state)
+
+    time_1, batch_embedding_diff = oversmoothing_statistics(args, test_loader, model, "mse")
+
+    return time_1, batch_embedding_diff
 
 
 
@@ -161,53 +180,86 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     #fdir = os.path.join(args.log_model_dir, args.model, args.group,  args.timestamp)
-    fdir = "pretrained/gred_mamba_zinc/2024-04-29_13-02-34" #TODO: quick fix for now 
-    cfg_path = os.path.join(fdir, "cfg.yaml")
-    model_path = os.path.join(fdir, "ckpt.pt")
-    model_state = torch.load(model_path)
 
-    # compose cfg
-    cfg = OmegaConf.load(cfg_path)
-    # change timestamp
-    curr_t = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    cfg.wandb.name = f"FINAL_{cfg.model.name}_{cfg.dataset.name}_{curr_t}"
-    cfg.only_evaluation = True
+    name2dir = {"GREDMamba/Zinc":"pretrained/gred_mamba_zinc/2024-04-29_13-02-34", "GINE/Zinc":"pretrained/gine_zinc", "GINE/Pept":"pretrained/gine_pept"}
 
-    #wandb
-    if args.wandb:
-        log.enable_wandb()
-        wandb_config = OmegaConf.to_container(
-            cfg, resolve=True, throw_on_missing=True
-        )
-        if cfg.wandb.tags is not None:
-            run = wandb.init(
-                project=cfg.wandb.project,
-                group=cfg.wandb.group,
-                name=cfg.wandb.name,
-                config=wandb_config,
-                tags=list(cfg.wandb.tags))
-        else:
-            run = wandb.init(
-                project=cfg.wandb.project,
-                group=cfg.wandb.group,
-                name=cfg.wandb.name,
-                config=wandb_config) 
+    # mamba_zinc = "pretrained/gred_mamba_zinc/2024-04-29_13-02-34" #TODO: quick fix for now 
+    # mamba_pept = "pretrained/gred_mamba_pept"
+    # gine_zinc = "pretrained/gine_zinc"
+    # gine_pept = "pretrained/gine_pept"
+    MAX_K = 8
 
-    args = cfg
-    train_loader, test_loader = get_dataset(args, batch_size=args.model.batch_size)
+    plt.figure(figsize = (10, 6))
 
-    _data = next(iter(test_loader))
-    print(f"Dataset shape: {_data}")
+    for name, folder in name2dir.items():
 
-    model = instantiate(args.model.params)
-    model.to(device)
+        cfg_path = os.path.join(folder, "cfg.yaml")
+        model_path = os.path.join(folder, "ckpt.pt")
 
-    log.info("Loading pretrained weights")
-    model.load_state_dict(model_state)
+        times, embed_diff = compute_oversmoothing(model_path, cfg_path)
+        log_embed_diff = np.log(embed_diff.cpu().numpy())
 
-    time_1, batch_embedding_diff = oversmoothing_statistics(args, test_loader, model, "mse")
-    optimizer =  instantiate(args.model.optimizer, params=model.parameters())
-    time_2, sensitivity_matrix = oversquashing_statistics(args, test_loader, model, optimizer, "mse", None, None, True)
+        plt.plot(np.arange(1, len(log_embed_diff)+1), log_embed_diff, label = name)
+
+        print("plotted!")
+    
+    plt.xlabel('Layer')
+    plt.ylabel('log-embed-diff')
+    plt.title('Embeddings similarities per layer')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+    plt.savefig("./oversmoothing.png")
+
+        
+
+
+
+
+    # model_state = torch.load(model_path)
+
+    # # compose cfg
+    # cfg = OmegaConf.load(cfg_path)
+    # # change timestamp
+    # curr_t = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    # cfg.wandb.name = f"FINAL_{cfg.model.name}_{cfg.dataset.name}_{curr_t}"
+    # cfg.only_evaluation = True
+
+    # #wandb
+    # if args.wandb:
+    #     log.enable_wandb()
+    #     wandb_config = OmegaConf.to_container(
+    #         cfg, resolve=True, throw_on_missing=True
+    #     )
+    #     if cfg.wandb.tags is not None:
+    #         run = wandb.init(
+    #             project=cfg.wandb.project,
+    #             group=cfg.wandb.group,
+    #             name=cfg.wandb.name,
+    #             config=wandb_config,
+    #             tags=list(cfg.wandb.tags))
+    #     else:
+    #         run = wandb.init(
+    #             project=cfg.wandb.project,
+    #             group=cfg.wandb.group,
+    #             name=cfg.wandb.name,
+    #             config=wandb_config) 
+
+    # args = cfg
+    # train_loader, test_loader = get_dataset(args, batch_size=args.model.batch_size)
+
+    # _data = next(iter(test_loader))
+    # print(f"Dataset shape: {_data}")
+
+    # model = instantiate(args.model.params)
+    # model.to(device)
+
+    # log.info("Loading pretrained weights")
+    # model.load_state_dict(model_state)
+
+    # time_1, batch_embedding_diff = oversmoothing_statistics(args, test_loader, model, "mse")
+    # optimizer =  instantiate(args.model.optimizer, params=model.parameters())
+    # time_2, sensitivity_matrix = oversquashing_statistics(args, test_loader, model, optimizer, "mse", None, None, True)
 
 
 # def oversquashing_statistics(
@@ -220,7 +272,7 @@ if __name__ == "__main__":
 #     evaluator=None,
 #     retrain:bool = True
 # ):
-    breakpoint()
+
     # for graph in test_loader:
     #     x = graph.x.to(device)
     #     edge_index = graph.edge_index.to(device)
