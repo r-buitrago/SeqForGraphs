@@ -4,9 +4,11 @@ SeqForGraphs is an implementation of GRED-Mamba benchmarked on Zinc and Peptide 
 
 #### Running Instructions
 
-python3 scripts/pipe.py --num_runs 1 --gpu_ids 0 --wandb --print --logrun --num_epochs 21 --group_name test
+python3 train.py
 
 #### Hyperparameter Sweep Instructions
+
+python3 scripts/pipe.py --num_runs 1 --gpu_ids 0 --wandb --print --logrun --num_epochs 21 --group_name test
 
 Specify hyperparameters in scripts/pipe.py:
 
@@ -16,8 +18,6 @@ Specify hyperparameters in scripts/pipe.py:
     K=("model.params.K", [4]),
     lr=("model.optimizer.lr", [0.001, 0.002]),
 )`
-
-#### Default Configuration for Hyperparameter Sweep
 
 Specify default configuration parameters in configs/config.yaml
 
